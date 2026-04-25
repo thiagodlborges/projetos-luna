@@ -162,6 +162,19 @@
     .project-actions{display:flex;gap:7px;padding:11px 18px;border-top:1px solid var(--cream-dark)}
     .btn-edit{flex:1;padding:7px;border-radius:8px;background:var(--cream);color:var(--text-mid);border:1px solid var(--cream-dark);cursor:pointer;font-size:12px;font-weight:600;text-align:center;font-family:'DM Sans',sans-serif;transition:all .2s}
     .btn-edit:hover{background:var(--bordo);color:#fff;border-color:var(--bordo)}
+    .btn-delete-proj{padding:7px 11px;border-radius:8px;background:var(--cream);color:var(--danger);border:1px solid #F5C6C6;cursor:pointer;font-size:13px;font-weight:600;font-family:'DM Sans',sans-serif;transition:all .2s;flex-shrink:0}
+    .btn-delete-proj:hover{background:var(--danger);color:#fff;border-color:var(--danger)}
+
+    /* CONFIRM MODAL */
+    .confirm-modal{max-width:420px}
+    .confirm-body{padding:24px 28px;text-align:center}
+    .confirm-icon{font-size:44px;margin-bottom:14px}
+    .confirm-title{font-family:'Playfair Display',serif;font-size:18px;color:var(--bordo-dark);margin-bottom:8px}
+    .confirm-msg{font-size:13.5px;color:var(--text-light);line-height:1.6}
+    .confirm-name{font-weight:700;color:var(--text-dark)}
+    .confirm-footer{display:flex;gap:10px;padding:16px 28px 24px;justify-content:center}
+    .btn-danger{padding:10px 24px;border-radius:10px;background:var(--danger);color:#fff;border:none;cursor:pointer;font-size:13.5px;font-weight:700;font-family:'DM Sans',sans-serif;transition:all .2s}
+    .btn-danger:hover{background:#A93226}
 
     /* MODAL */
     .modal-overlay{position:fixed;inset:0;background:rgba(44,26,14,.6);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:20px;opacity:0;pointer-events:none;transition:opacity .3s}
@@ -350,7 +363,24 @@
   </div>
 </div>
 
-<script>
+<!-- CONFIRM DELETE MODAL -->
+<div class="modal-overlay" id="confirmDeleteModal">
+  <div class="modal confirm-modal">
+    <div class="modal-header">
+      <h3>Excluir Projeto</h3>
+      <button class="modal-close" onclick="closeModal('confirmDeleteModal')">×</button>
+    </div>
+    <div class="confirm-body">
+      <div class="confirm-icon">🗑️</div>
+      <div class="confirm-title">Tem certeza?</div>
+      <p class="confirm-msg">Você está prestes a excluir o projeto<br><span class="confirm-name" id="confirmDeleteName"></span><br><br>Todas as tarefas vinculadas também serão excluídas. Esta ação não pode ser desfeita.</p>
+    </div>
+    <div class="confirm-footer">
+      <button class="btn-secondary" onclick="closeModal('confirmDeleteModal')">Cancelar</button>
+      <button class="btn-danger" onclick="deleteProject()">Sim, excluir projeto</button>
+    </div>
+  </div>
+</div>
 const SUPABASE_URL='https://pbuhwpcpdcnaheaywmdv.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBidWh3cGNwZGNuYWhlYXl3bWR2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyNjU5MzksImV4cCI6MjA5MTg0MTkzOX0.Mg4PVg96ZiV3C2Rn0GLQU9c7ui_41OlU6Ldqn5jcvyY';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
@@ -532,6 +562,7 @@ function renderProjectCard(p){
     <div class="project-actions">
       <button class="btn-edit" onclick="openDetail('${p.id}')">Ver Detalhes</button>
       <button class="btn-edit" onclick="editProject('${p.id}')">✏️ Editar</button>
+      <button class="btn-delete-proj" onclick="confirmDeleteProject('${p.id}',\`${p.name.replace(/`/g,"'")}\`)" title="Excluir projeto">🗑️</button>
     </div>
   </div>`
 }
@@ -664,6 +695,25 @@ async function deleteTask(taskId){
   if(!confirm('Excluir esta tarefa?'))return;
   await sb.from('tasks').delete().eq('id',taskId);
   openDetail(currentProjectId);
+}
+
+let projectToDelete=null;
+
+function confirmDeleteProject(id,name){
+  projectToDelete=id;
+  document.getElementById('confirmDeleteName').textContent='"'+name+'"';
+  openModal('confirmDeleteModal');
+}
+
+async function deleteProject(){
+  if(!projectToDelete)return;
+  // Delete tasks first (cascade should handle it, but just in case)
+  await sb.from('tasks').delete().eq('project_id',projectToDelete);
+  await sb.from('projects').delete().eq('id',projectToDelete);
+  projectToDelete=null;
+  closeModal('confirmDeleteModal');
+  await renderYears();
+  render();
 }
 
 (async()=>{await renderYears();render()})();
