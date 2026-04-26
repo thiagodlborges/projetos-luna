@@ -361,7 +361,8 @@
         <div class="form-group"><label>Data de Início</label><input type="date" id="tStart" /></div>
         <div class="form-group"><label>Prazo (Término)</label><input type="date" id="tDue" /></div>
         <div class="form-group"><label>Status</label><select id="tStatus"><option value="pendente">Pendente</option><option value="em_andamento">Em Andamento</option><option value="concluida">Concluída</option><option value="atrasada">Atrasada</option></select></div>
-        <div class="form-group"><label>Depende de (tarefa anterior)</label><select id="tDepends"><option value="">— Nenhuma dependência —</option></select></div>
+        <div class="form-group"><label>Depende de (tarefa anterior)</label><select id="tDepends" onchange="onDependsChange()"><option value="">— Nenhuma dependência —</option></select></div>
+        <div class="form-full" id="depInfoBox" style="display:none;background:#EBF5FB;border:1.5px solid #AED6F1;border-radius:10px;padding:11px 14px;font-size:12.5px;color:#1A5276;line-height:1.6"></div>
       </div>
     </div>
     <div class="modal-footer"><button class="btn-secondary" onclick="closeModal('taskModal')">Cancelar</button><button class="btn-primary" onclick="saveTask()">Salvar Tarefa</button></div>
@@ -747,6 +748,8 @@ async function openTaskModal(){
   document.getElementById('tDue').value='';
   document.getElementById('tStatus').value='pendente';
   document.getElementById('tPriority').value='media';
+  document.getElementById('depInfoBox').style.display='none';
+  const eb=document.getElementById('taskErrorBox');if(eb)eb.remove();
   await populateDependsSelect(null);
   openModal('taskModal');
 }
@@ -761,38 +764,160 @@ async function editTask(taskId){
   document.getElementById('tDue').value=t.due_date||'';
   document.getElementById('tStatus').value=t.status||'pendente';
   document.getElementById('tPriority').value=t.priority||'media';
+  document.getElementById('depInfoBox').style.display='none';
+  const eb=document.getElementById('taskErrorBox');if(eb)eb.remove();
   await populateDependsSelect(t.depends_on, taskId);
   openModal('taskModal');
 }
+// Cache of sibling tasks for dependency validation
+let _siblingTasks = [];
+
 async function populateDependsSelect(selectedId, excludeId){
-  const{data:tasks}=await sb.from('tasks').select('id,title').eq('project_id',currentProjectId).order('sort_order').order('created_at');
+  const{data:tasks}=await sb.from('tasks').select('id,title,due_date,status').eq('project_id',currentProjectId).order('sort_order').order('created_at');
+  _siblingTasks = tasks || [];
   const sel=document.getElementById('tDepends');
   sel.innerHTML='<option value="">— Nenhuma dependência —</option>';
-  (tasks||[]).filter(t=>t.id!==excludeId).forEach(t=>{
+  _siblingTasks.filter(t=>t.id!==excludeId).forEach(t=>{
     const opt=document.createElement('option');
     opt.value=t.id;
-    opt.textContent=t.title;
+    opt.textContent=t.title + (t.due_date ? '  (término: '+fmtDate(t.due_date)+')' : '');
     if(t.id===selectedId)opt.selected=true;
     sel.appendChild(opt);
   });
+  // Trigger info update in case we're pre-populating edit form
+  onDependsChange();
 }
+
+function onDependsChange(){
+  const depId = document.getElementById('tDepends').value;
+  const infoBox = document.getElementById('depInfoBox');
+  const startInput = document.getElementById('tStart');
+  const dueInput = document.getElementById('tDue');
+
+  if(!depId){
+    // No dependency — remove restrictions
+    infoBox.style.display = 'none';
+    startInput.removeAttribute('min');
+    dueInput.removeAttribute('min');
+    return;
+  }
+
+  const dep = _siblingTasks.find(t => t.id === depId);
+  if(!dep) return;
+
+  if(dep.due_date){
+    // The earliest this task can start is the day AFTER the predecessor ends
+    const depEnd = dep.due_date; // 'YYYY-MM-DD'
+    const minStart = nextDay(depEnd);
+
+    startInput.min = minStart;
+    dueInput.min = minStart;
+
+    // If current start value violates the constraint, clear it
+    if(startInput.value && startInput.value < minStart){
+      startInput.value = '';
+    }
+    if(dueInput.value && dueInput.value < minStart){
+      dueInput.value = '';
+    }
+
+    const statusIcon = dep.status === 'concluida' ? '✅' : '⏳';
+    const statusMsg = dep.status === 'concluida'
+      ? 'já concluída — você pode prosseguir.'
+      : 'ainda não concluída — esta tarefa ficará bloqueada até lá.';
+
+    infoBox.style.display = 'block';
+    infoBox.innerHTML =
+      '<strong>⛓️ Dependência ativa:</strong> esta tarefa só pode iniciar após o término de <strong>"' + esc(dep.title) + '"</strong>.<br>'
+      + '📅 Término previsto da predecessora: <strong>' + fmtDate(depEnd) + '</strong><br>'
+      + '🗓️ Data de início mínima desta tarefa: <strong>' + fmtDate(minStart) + '</strong><br>'
+      + statusIcon + ' Status da predecessora: ' + statusMsg;
+  } else {
+    // Predecessor has no due_date yet — warn but don't block
+    infoBox.style.display = 'block';
+    infoBox.innerHTML =
+      '<strong>⛓️ Dependência ativa:</strong> esta tarefa depende de <strong>"' + esc(dep.title) + '"</strong>.<br>'
+      + '⚠️ A tarefa predecessora ainda <strong>não tem data de término definida</strong>. '
+      + 'Defina o prazo dela primeiro para que a trava de datas funcione corretamente.';
+    startInput.removeAttribute('min');
+    dueInput.removeAttribute('min');
+  }
+}
+
+function nextDay(dateStr){
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 async function saveTask(){
+  const depId = document.getElementById('tDepends').value || null;
+  const startVal = document.getElementById('tStart').value || null;
+  const dueVal = document.getElementById('tDue').value || null;
+
+  // ── Dependency date validation ──────────────────────────────────────
+  if(depId && startVal){
+    const dep = _siblingTasks.find(t => t.id === depId);
+    if(dep && dep.due_date){
+      const minStart = nextDay(dep.due_date);
+      if(startVal < minStart){
+        showTaskError(
+          '⛓️ Conflito de dependência',
+          'A data de início (' + fmtDate(startVal) + ') não pode ser anterior ao término da tarefa predecessora "' + dep.title + '" (' + fmtDate(dep.due_date) + ').\n\nA data de início deve ser a partir de ' + fmtDate(minStart) + '.'
+        );
+        return;
+      }
+    }
+  }
+  if(depId && dueVal && !startVal){
+    const dep = _siblingTasks.find(t => t.id === depId);
+    if(dep && dep.due_date){
+      const minStart = nextDay(dep.due_date);
+      if(dueVal < minStart){
+        showTaskError(
+          '⛓️ Conflito de dependência',
+          'O prazo de término (' + fmtDate(dueVal) + ') não pode ser anterior ao término da tarefa predecessora "' + dep.title + '" (' + fmtDate(dep.due_date) + ').\n\nO prazo deve ser a partir de ' + fmtDate(minStart) + '.'
+        );
+        return;
+      }
+    }
+  }
+
+  // ── Start must be before due ─────────────────────────────────────────
+  if(startVal && dueVal && startVal > dueVal){
+    showTaskError('📅 Datas inválidas', 'A data de início não pode ser posterior ao prazo de término.');
+    return;
+  }
+
   const data={
     project_id:currentProjectId,
     title:document.getElementById('tTitle').value.trim(),
     description:document.getElementById('tDescription').value.trim(),
     responsible:document.getElementById('tResponsible').value.trim(),
-    start_date:document.getElementById('tStart').value||null,
-    due_date:document.getElementById('tDue').value||null,
+    start_date:startVal,
+    due_date:dueVal,
     status:document.getElementById('tStatus').value,
     priority:document.getElementById('tPriority').value,
-    depends_on:document.getElementById('tDepends').value||null,
+    depends_on:depId,
   };
-  if(!data.title){alert('Informe o título da tarefa.');return;}
+  if(!data.title){showTaskError('Campo obrigatório','Informe o título da tarefa.');return;}
   if(currentTaskId)await sb.from('tasks').update(data).eq('id',currentTaskId);
   else await sb.from('tasks').insert(data);
   closeModal('taskModal');
   await openDetail(currentProjectId);
+}
+
+function showTaskError(title, msg){
+  // Nice inline error inside the modal instead of browser alert
+  let errBox = document.getElementById('taskErrorBox');
+  if(!errBox){
+    errBox = document.createElement('div');
+    errBox.id = 'taskErrorBox';
+    errBox.style.cssText = 'margin:0 28px 16px;background:#FDEDEC;border:1.5px solid #E6B0AA;border-radius:10px;padding:12px 16px;font-size:13px;color:#922B21;line-height:1.6;white-space:pre-line';
+    document.querySelector('#taskModal .modal-footer').before(errBox);
+  }
+  errBox.innerHTML = '<strong>' + esc(title) + '</strong><br>' + esc(msg);
+  errBox.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 async function deleteTask(taskId){
   if(!confirm('Excluir esta tarefa?'))return;
