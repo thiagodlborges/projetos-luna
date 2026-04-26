@@ -431,6 +431,10 @@ async function render(){
 // ── DASHBOARD ──────────────────────────────────────────────────────────
 async function renderDashboard(){
   const content=document.getElementById('mainContent');
+
+  // Auto-promote overdue tasks across all projects before rendering alerts
+  await autoUpdateAllOverdueTasks();
+
   const[{data:projects},{data:allTasks}]=await Promise.all([sb.from('projects').select('*').eq('year',currentYear),sb.from('tasks').select('*,projects(name,area)')]);
   const all=projects||[],tasks=allTasks||[];
   const today=new Date();today.setHours(0,0,0,0);
@@ -504,10 +508,52 @@ function renderProjectCard(p){
     +'<div class="project-actions"><button class="btn-edit" onclick="openDetail(\''+p.id+'\')">Ver Detalhes</button><button class="btn-edit" onclick="editProject(\''+p.id+'\')">✏️ Editar</button><button class="btn-delete-proj" onclick="confirmDeleteProject(\''+p.id+'\',\''+esc(p.name)+'\')" title="Excluir projeto">🗑️</button></div></div>';
 }
 
+// ── AUTO-UPDATE OVERDUE TASK STATUS ────────────────────────────────────
+// Runs every time a project is opened (and on dashboard load).
+// Promotes 'pendente' or 'em_andamento' tasks whose due_date < today to 'atrasada'.
+// Never touches tasks that are already 'concluida'.
+async function autoUpdateOverdueTasks(projectId){
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const todayStr = today.toISOString().slice(0,10); // 'YYYY-MM-DD'
+
+  // Fetch only the tasks that could be overdue and are not yet marked as such
+  const { data: tasks } = await sb
+    .from('tasks')
+    .select('id, status, due_date')
+    .eq('project_id', projectId)
+    .in('status', ['pendente', 'em_andamento'])
+    .lt('due_date', todayStr)  // due_date strictly before today
+    .not('due_date', 'is', null);
+
+  if (!tasks || tasks.length === 0) return;
+
+  const ids = tasks.map(t => t.id);
+  await sb.from('tasks').update({ status: 'atrasada' }).in('id', ids);
+}
+
+// Also auto-update all projects' tasks when the dashboard loads (for the alert panels)
+async function autoUpdateAllOverdueTasks(){
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const todayStr = today.toISOString().slice(0,10);
+
+  await sb
+    .from('tasks')
+    .update({ status: 'atrasada' })
+    .in('status', ['pendente', 'em_andamento'])
+    .lt('due_date', todayStr)
+    .not('due_date', 'is', null);
+}
+
 // ── DETAIL MODAL with TABS ─────────────────────────────────────────────
 async function openDetail(projectId){
   currentProjectId=projectId;
   currentDetailTab='lista';
+
+  // Auto-update overdue statuses before rendering
+  await autoUpdateOverdueTasks(projectId);
+
   const[{data:p},{data:tasks}]=await Promise.all([
     sb.from('projects').select('*').eq('id',projectId).single(),
     sb.from('tasks').select('*').eq('project_id',projectId).order('sort_order').order('created_at')
@@ -856,27 +902,27 @@ async function saveTask(){
   const dueVal = document.getElementById('tDue').value || null;
 
   // ── Dependency date validation ──────────────────────────────────────
-  if(depId && startVal){
+  if(depId){
     const dep = _siblingTasks.find(t => t.id === depId);
     if(dep && dep.due_date){
       const minStart = nextDay(dep.due_date);
-      if(startVal < minStart){
+
+      // start_date must be >= minStart
+      if(startVal && startVal < minStart){
         showTaskError(
           '⛓️ Conflito de dependência',
-          'A data de início (' + fmtDate(startVal) + ') não pode ser anterior ao término da tarefa predecessora "' + dep.title + '" (' + fmtDate(dep.due_date) + ').\n\nA data de início deve ser a partir de ' + fmtDate(minStart) + '.'
+          'A data de início (' + fmtDate(startVal) + ') não pode ser anterior ao término da tarefa predecessora "'
+          + dep.title + '" (' + fmtDate(dep.due_date) + ').\n\nA data de início deve ser a partir de ' + fmtDate(minStart) + '.'
         );
         return;
       }
-    }
-  }
-  if(depId && dueVal && !startVal){
-    const dep = _siblingTasks.find(t => t.id === depId);
-    if(dep && dep.due_date){
-      const minStart = nextDay(dep.due_date);
-      if(dueVal < minStart){
+
+      // due_date must also be >= minStart (independently of start_date)
+      if(dueVal && dueVal < minStart){
         showTaskError(
           '⛓️ Conflito de dependência',
-          'O prazo de término (' + fmtDate(dueVal) + ') não pode ser anterior ao término da tarefa predecessora "' + dep.title + '" (' + fmtDate(dep.due_date) + ').\n\nO prazo deve ser a partir de ' + fmtDate(minStart) + '.'
+          'O prazo de término (' + fmtDate(dueVal) + ') não pode ser anterior ao término da tarefa predecessora "'
+          + dep.title + '" (' + fmtDate(dep.due_date) + ').\n\nO prazo deve ser a partir de ' + fmtDate(minStart) + '.'
         );
         return;
       }
