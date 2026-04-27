@@ -7,6 +7,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
   <style>
     :root {
       --bordo:#6B1A2A;--bordo-dark:#4A0F1C;--bordo-light:#8B2A3E;
@@ -63,6 +65,9 @@
     .topbar-actions{display:flex;gap:10px;align-items:center;flex-shrink:0}
     .btn-add{display:flex;align-items:center;gap:7px;background:var(--bordo);color:#fff;padding:9px 18px;border-radius:10px;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s;font-family:'DM Sans',sans-serif;white-space:nowrap}
     .btn-add:hover{background:var(--bordo-light);transform:translateY(-1px)}
+    .btn-report{display:flex;align-items:center;gap:7px;background:var(--white);color:var(--bordo);padding:9px 18px;border-radius:10px;border:1.5px solid var(--bordo);cursor:pointer;font-size:13px;font-weight:600;transition:all .2s;font-family:'DM Sans',sans-serif;white-space:nowrap}
+    .btn-report:hover{background:var(--bordo);color:#fff}
+    .btn-report:disabled{opacity:.5;cursor:wait}
     .content{padding:26px 32px}
 
     /* STATS */
@@ -308,6 +313,7 @@
       <div class="search-results" id="searchResults"></div>
     </div>
     <div class="topbar-actions">
+      <button class="btn-report" id="btnReport" onclick="generateReport()" title="Gerar relatório PDF">📄 Relatório PDF</button>
       <button class="btn-add" onclick="openProjectModal()">+ Novo Projeto</button>
     </div>
   </div>
@@ -971,6 +977,370 @@ async function deleteTask(taskId){
   await sb.from('tasks').update({depends_on:null}).eq('depends_on',taskId);
   await sb.from('tasks').delete().eq('id',taskId);
   await openDetail(currentProjectId);
+}
+
+// ── PDF REPORT ──────────────────────────────────────────────────────────
+async function generateReport(){
+  const btn = document.getElementById('btnReport');
+  btn.disabled = true;
+  btn.textContent = '⏳ Gerando...';
+
+  try {
+    // ── Fetch data ────────────────────────────────────────────────────
+    const now = new Date();
+    const twelveMonthsAgo = new Date(now);
+    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+    const cutoff = twelveMonthsAgo.toISOString().slice(0,10);
+
+    const [{ data: ongoing }, { data: finished }, { data: tasks }] = await Promise.all([
+      sb.from('projects').select('*').in('status',['em_andamento','atrasado']).order('area').order('name'),
+      sb.from('projects').select('*').eq('status','concluido').gte('end_date', cutoff).order('end_date', {ascending:false}),
+      sb.from('tasks').select('project_id, status').in('status',['pendente','em_andamento','concluida','atrasada'])
+    ]);
+
+    // Task counts per project
+    const taskMap = {};
+    (tasks||[]).forEach(t => {
+      if(!taskMap[t.project_id]) taskMap[t.project_id] = {total:0,concluida:0,atrasada:0};
+      taskMap[t.project_id].total++;
+      if(t.status==='concluida') taskMap[t.project_id].concluida++;
+      if(t.status==='atrasada')  taskMap[t.project_id].atrasada++;
+    });
+
+    // ── Setup jsPDF ───────────────────────────────────────────────────
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+    const PW = 210, PH = 297;
+    const ML = 14, MR = 14, MT = 14;
+    const CW = PW - ML - MR;
+
+    // Colors
+    const BORDO    = [75, 15, 28];
+    const BORDO_L  = [139, 42, 62];
+    const GOLD     = [201, 168, 76];
+    const CREAM    = [245, 239, 230];
+    const WHITE    = [253, 250, 246];
+    const DARK     = [44, 26, 14];
+    const LIGHT    = [154, 123, 90];
+    const SUCCESS  = [46, 125, 79];
+    const DANGER   = [192, 57, 43];
+    const WARNING  = [198, 124, 26];
+    const INFO     = [37, 99, 235];
+
+    const aLbl = {qualidade:'Qualidade',produtos:'Produtos',comercial:'Comercial',marketing:'Marketing',operacoes:'Operações'};
+
+    function fmtN(v,u){
+      if(v==null||v===undefined||v==='')return'—';
+      if(u==='R$')return'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:0});
+      if(u==='%')return Number(v).toLocaleString('pt-BR')+'%';
+      return Number(v).toLocaleString('pt-BR')+(u?' '+u:'');
+    }
+    function fmtD(s){if(!s)return'—';return new Date(s+'T00:00:00').toLocaleDateString('pt-BR');}
+    function pct(achieved, target){
+      if(!target)return null;
+      return Math.round((achieved||0)/target*100);
+    }
+    function statusColor(s){
+      if(s==='atrasado'||s==='atrasada') return DANGER;
+      if(s==='concluido'||s==='concluida') return SUCCESS;
+      if(s==='em_andamento') return INFO;
+      return LIGHT;
+    }
+    function statusLbl(s){
+      return {em_andamento:'Em Andamento',concluido:'Concluído',atrasado:'Atrasado',cancelado:'Cancelado'}[s]||s;
+    }
+
+    let y = MT;
+
+    // ── COVER HEADER ─────────────────────────────────────────────────
+    // Top bar
+    doc.setFillColor(...BORDO);
+    doc.rect(0, 0, PW, 42, 'F');
+
+    // Gold accent line
+    doc.setFillColor(...GOLD);
+    doc.rect(0, 42, PW, 2, 'F');
+
+    // Company name
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(22);
+    doc.setTextColor(...WHITE);
+    doc.text('LUNA GELATO & CAFFÈ', PW/2, 18, {align:'center'});
+
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(11);
+    doc.setTextColor(201, 168, 76);
+    doc.text('Relatório Gerencial de Projetos', PW/2, 27, {align:'center'});
+
+    doc.setFontSize(9);
+    doc.setTextColor(200, 185, 170);
+    const today = new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'});
+    doc.text('Gerado em: ' + today, PW/2, 35, {align:'center'});
+
+    y = 54;
+
+    // ── SUMMARY BOXES ────────────────────────────────────────────────
+    const boxes = [
+      { label:'Em Andamento', value: (ongoing||[]).filter(p=>p.status==='em_andamento').length, color: INFO },
+      { label:'Atrasados',    value: (ongoing||[]).filter(p=>p.status==='atrasado').length,     color: DANGER },
+      { label:'Concluídos\n(12 meses)', value: (finished||[]).length, color: SUCCESS },
+      { label:'Total Analisados', value: (ongoing||[]).length + (finished||[]).length, color: BORDO_L },
+    ];
+    const bw = (CW - 9) / 4;
+    boxes.forEach((b, i) => {
+      const bx = ML + i*(bw+3);
+      doc.setFillColor(...b.color);
+      doc.roundedRect(bx, y, bw, 20, 3, 3, 'F');
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(18);
+      doc.setTextColor(...WHITE);
+      doc.text(String(b.value), bx + bw/2, y + 10, {align:'center'});
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(220, 210, 200);
+      doc.text(b.label, bx + bw/2, y + 16, {align:'center'});
+    });
+    y += 28;
+
+    // ═══════════════════════════════════════════════════════════════
+    // SECTION 1 — PROJETOS EM ANDAMENTO
+    // ═══════════════════════════════════════════════════════════════
+    // Section heading
+    doc.setFillColor(...BORDO);
+    doc.rect(ML, y, CW, 9, 'F');
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(10);
+    doc.setTextColor(...WHITE);
+    doc.text('PROJETOS EM ANDAMENTO — STATUS MACRO', ML + 4, y + 6);
+    y += 13;
+
+    if (!ongoing || ongoing.length === 0) {
+      doc.setFont('helvetica','italic');
+      doc.setFontSize(9);
+      doc.setTextColor(...LIGHT);
+      doc.text('Nenhum projeto em andamento no momento.', ML, y + 5);
+      y += 14;
+    } else {
+      // Group by area
+      const byArea = {};
+      ongoing.forEach(p => {
+        if(!byArea[p.area]) byArea[p.area] = [];
+        byArea[p.area].push(p);
+      });
+
+      Object.entries(byArea).forEach(([area, projs]) => {
+        // Check page break
+        if(y > PH - 60){ doc.addPage(); y = MT; }
+
+        // Area sub-heading
+        doc.setFillColor(...CREAM);
+        doc.rect(ML, y, CW, 7, 'F');
+        doc.setFont('helvetica','bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(...BORDO);
+        doc.text((aLbl[area]||area).toUpperCase(), ML + 3, y + 5);
+        y += 10;
+
+        projs.forEach(p => {
+          if(y > PH - 50){ doc.addPage(); y = MT; }
+
+          const tc = taskMap[p.id] || {total:0,concluida:0,atrasada:0};
+          const progPct = tc.total ? Math.round(tc.concluida/tc.total*100) : null;
+          const resPct  = pct(p.result_achieved, p.result_target);
+          const sColor  = statusColor(p.status);
+
+          // Card background
+          doc.setFillColor(...WHITE);
+          doc.setDrawColor(220, 210, 200);
+          doc.setLineWidth(0.3);
+          doc.roundedRect(ML, y, CW, 36, 2, 2, 'FD');
+
+          // Left color stripe
+          doc.setFillColor(...sColor);
+          doc.roundedRect(ML, y, 3, 36, 1, 1, 'F');
+
+          // Status badge
+          doc.setFillColor(...sColor);
+          doc.roundedRect(PW - MR - 28, y + 3, 26, 6, 2, 2, 'F');
+          doc.setFont('helvetica','bold');
+          doc.setFontSize(6.5);
+          doc.setTextColor(...WHITE);
+          doc.text(statusLbl(p.status).toUpperCase(), PW - MR - 15, y + 7.2, {align:'center'});
+
+          // Project name
+          doc.setFont('helvetica','bold');
+          doc.setFontSize(10);
+          doc.setTextColor(...DARK);
+          const nameStr = doc.splitTextToSize(p.name, CW - 50);
+          doc.text(nameStr[0], ML + 6, y + 8);
+
+          // Area & responsible
+          doc.setFont('helvetica','normal');
+          doc.setFontSize(7.5);
+          doc.setTextColor(...LIGHT);
+          doc.text((aLbl[area]||area) + '  |  Resp.: ' + (p.responsible||'—') + '  |  Entrega: ' + fmtD(p.end_date), ML + 6, y + 14);
+
+          // Scope (truncated)
+          if(p.scope){
+            doc.setFontSize(7.5);
+            doc.setTextColor(90,60,30);
+            const scopeLines = doc.splitTextToSize(p.scope, CW - 12);
+            doc.text(scopeLines[0] + (scopeLines.length > 1 ? '...' : ''), ML + 6, y + 20);
+          }
+
+          // ── Metrics row ──────────────────────────────────────────
+          const m1x = ML + 6, m2x = ML + 62, m3x = ML + 118;
+          const my = y + 28;
+
+          // Tarefas progress
+          doc.setFont('helvetica','bold');
+          doc.setFontSize(7);
+          doc.setTextColor(...LIGHT);
+          doc.text('TAREFAS', m1x, my - 3);
+          doc.setFontSize(9);
+          doc.setTextColor(...DARK);
+          doc.text(tc.concluida + '/' + tc.total + (tc.atrasada > 0 ? '  (' + tc.atrasada + ' atrasada' + (tc.atrasada>1?'s':'') + ')' : ''), m1x, my + 3);
+          if(progPct !== null){
+            doc.setFillColor(220,210,200);
+            doc.roundedRect(m1x, my + 5, 44, 2.5, 1, 1, 'F');
+            const barColor = progPct >= 100 ? SUCCESS : progPct >= 50 ? GOLD : DANGER;
+            doc.setFillColor(...barColor);
+            doc.roundedRect(m1x, my + 5, Math.min(progPct, 100) * 0.44, 2.5, 1, 1, 'F');
+          }
+
+          // Resultado previsto
+          doc.setFont('helvetica','bold');
+          doc.setFontSize(7);
+          doc.setTextColor(...LIGHT);
+          doc.text('RESULTADO — PREVISTO', m2x, my - 3);
+          doc.setFontSize(9);
+          doc.setTextColor(...DARK);
+          doc.text(fmtN(p.result_target, p.result_unit), m2x, my + 3);
+
+          // Resultado realizado
+          doc.setFont('helvetica','bold');
+          doc.setFontSize(7);
+          doc.setTextColor(...LIGHT);
+          doc.text('REALIZADO' + (resPct !== null ? '  (' + resPct + '%)' : ''), m3x, my - 3);
+          doc.setFontSize(9);
+          const realColor = resPct === null ? DARK : resPct >= 100 ? SUCCESS : resPct >= 60 ? WARNING : DANGER;
+          doc.setTextColor(...realColor);
+          doc.text(fmtN(p.result_achieved, p.result_unit), m3x, my + 3);
+
+          y += 40;
+        });
+        y += 4;
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // SECTION 2 — PROJETOS CONCLUÍDOS (12 meses)
+    // ═══════════════════════════════════════════════════════════════
+    if(y > PH - 80){ doc.addPage(); y = MT; } else { y += 4; }
+
+    doc.setFillColor(...BORDO);
+    doc.rect(ML, y, CW, 9, 'F');
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(10);
+    doc.setTextColor(...WHITE);
+    doc.text('PROJETOS CONCLUÍDOS — ÚLTIMOS 12 MESES (PREVISTO VS. REALIZADO)', ML + 4, y + 6);
+    y += 13;
+
+    if(!finished || finished.length === 0){
+      doc.setFont('helvetica','italic');
+      doc.setFontSize(9);
+      doc.setTextColor(...LIGHT);
+      doc.text('Nenhum projeto concluído nos últimos 12 meses.', ML, y + 5);
+      y += 14;
+    } else {
+      // Table
+      const tableHead = [['Projeto','Área','Entrega','Resultado','Previsto','Realizado','Atingimento']];
+      const tableRows = (finished||[]).map(p => {
+        const r = pct(p.result_achieved, p.result_target);
+        const rStr = r !== null ? r + '%' : '—';
+        return [
+          p.name,
+          aLbl[p.area]||p.area,
+          fmtD(p.end_date),
+          p.planned_result || '—',
+          fmtN(p.result_target, p.result_unit),
+          fmtN(p.result_achieved, p.result_unit),
+          rStr
+        ];
+      });
+
+      doc.autoTable({
+        startY: y,
+        head: tableHead,
+        body: tableRows,
+        theme: 'grid',
+        styles: {
+          font: 'helvetica',
+          fontSize: 7.5,
+          cellPadding: {top:3, right:3, bottom:3, left:3},
+          textColor: DARK,
+          lineColor: [220, 210, 200],
+          lineWidth: 0.25,
+          overflow: 'ellipsize',
+        },
+        headStyles: {
+          fillColor: BORDO_L,
+          textColor: WHITE,
+          fontStyle: 'bold',
+          fontSize: 7.5,
+        },
+        alternateRowStyles: {
+          fillColor: CREAM,
+        },
+        columnStyles: {
+          0: { cellWidth: 42, fontStyle:'bold' },
+          1: { cellWidth: 22 },
+          2: { cellWidth: 20 },
+          3: { cellWidth: 36 },
+          4: { cellWidth: 22, halign:'right' },
+          5: { cellWidth: 22, halign:'right' },
+          6: { cellWidth: 18, halign:'center', fontStyle:'bold' },
+        },
+        didParseCell: function(data) {
+          // Color the Atingimento column
+          if(data.section === 'body' && data.column.index === 6) {
+            const val = parseInt(data.cell.raw);
+            if(!isNaN(val)){
+              data.cell.styles.textColor = val >= 100 ? SUCCESS : val >= 60 ? WARNING : DANGER;
+            }
+          }
+        },
+        margin: { left: ML, right: MR },
+      });
+      y = doc.lastAutoTable.finalY + 8;
+    }
+
+    // ── FOOTER on every page ─────────────────────────────────────────
+    const totalPages = doc.internal.getNumberOfPages();
+    for(let i = 1; i <= totalPages; i++){
+      doc.setPage(i);
+      doc.setFillColor(...BORDO);
+      doc.rect(0, PH - 10, PW, 10, 'F');
+      doc.setFillColor(...GOLD);
+      doc.rect(0, PH - 10, PW, 0.8, 'F');
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(7);
+      doc.setTextColor(200, 185, 170);
+      doc.text('Luna Gelato & Caffè — Relatório Gerencial de Projetos — ' + today, ML, PH - 3.5);
+      doc.text('Página ' + i + ' de ' + totalPages, PW - MR, PH - 3.5, {align:'right'});
+    }
+
+    // ── Save ─────────────────────────────────────────────────────────
+    const filename = 'relatorio-projetos-' + new Date().toISOString().slice(0,10) + '.pdf';
+    doc.save(filename);
+
+  } catch(err) {
+    console.error('Erro ao gerar relatório:', err);
+    alert('Erro ao gerar o relatório. Verifique o console para mais detalhes.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📄 Relatório PDF';
+  }
 }
 
 // ── INIT ───────────────────────────────────────────────────────────────
