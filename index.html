@@ -330,11 +330,11 @@
       <div class="form-grid">
         <div class="form-group form-full"><label>Nome do Projeto</label><input type="text" id="pName" placeholder="Ex: Certificação ISO 9001" /></div>
         <div class="form-group"><label>Área</label><select id="pArea"><option value="qualidade">Qualidade</option><option value="produtos">Produtos</option><option value="comercial">Comercial</option><option value="marketing">Marketing</option><option value="operacoes">Operações</option></select></div>
-        <div class="form-group"><label>Ano</label><input type="number" id="pYear" value="2025" min="2020" max="2035" /></div>
+        <div class="form-group"><label>Ano</label><input type="number" id="pYear" min="2020" max="2035" /></div>
         <div class="form-group"><label>Responsável</label><input type="text" id="pResponsible" placeholder="Nome do responsável" /></div>
         <div class="form-group"><label>Status</label><select id="pStatus"><option value="em_andamento">Em Andamento</option><option value="concluido">Concluído</option><option value="atrasado">Atrasado</option><option value="cancelado">Cancelado</option></select></div>
-        <div class="form-group"><label>Data de Abertura</label><input type="date" id="pStart" /></div>
-        <div class="form-group"><label>Data de Entrega</label><input type="date" id="pEnd" /></div>
+        <div class="form-group"><label>Data de Abertura</label><input type="date" id="pStart" onchange="syncYearFromDates()" /></div>
+        <div class="form-group"><label>Data de Entrega</label><input type="date" id="pEnd" onchange="syncYearFromDates()" /></div>
         <div class="form-group form-full"><label>Escopo</label><textarea id="pScope" placeholder="Descrição abreviada do escopo..."></textarea></div>
         <div class="form-group form-full"><label>Resultado Mensurável</label><input type="text" id="pResultDesc" placeholder="Ex: Redução de custos operacionais" /></div>
         <div class="form-group"><label>Unidade</label><input type="text" id="pResultUnit" placeholder="%, R$, un..." /></div>
@@ -415,7 +415,15 @@ function parseDate(s){return s?new Date(s+'T00:00:00'):null;}
 function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
 
 // ── YEARS ──────────────────────────────────────────────────────────────
-async function getYears(){const{data}=await sb.from('projects').select('year');const y=[...new Set((data||[]).map(r=>r.year))].sort((a,b)=>b-a);if(!y.includes(currentYear)&&y.length>0)currentYear=y[0];return y.length?y:[new Date().getFullYear()];}
+async function getYears(){
+  const{data}=await sb.from('projects').select('year');
+  const realYear=new Date().getFullYear();
+  // Always include the real current year in the list, even if no projects exist yet
+  const y=[...new Set([realYear, ...(data||[]).map(r=>r.year)])].sort((a,b)=>b-a);
+  // Only fall back to years[0] if currentYear is not in the list at all
+  if(!y.includes(currentYear)) currentYear=realYear;
+  return y;
+}
 async function renderYears(){const years=await getYears();document.getElementById('yearSelector').innerHTML=years.map(yr=>'<button class="year-btn'+(yr===currentYear?' active':'')+'" onclick="setYear('+yr+'">'+yr+'</button>').join('');}
 function setYear(y){currentYear=y;renderYears();render();}
 
@@ -754,12 +762,23 @@ function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');if(id==='projectModal')editingProject=null;if(id==='taskModal')currentTaskId=null;if(id==='confirmDeleteModal')projectToDelete=null;}
 
 // ── PROJECT CRUD ───────────────────────────────────────────────────────
+// Derives the project year from the end date (preferred) or start date, updating the Ano field
+function syncYearFromDates(){
+  const endVal   = document.getElementById('pEnd').value;
+  const startVal = document.getElementById('pStart').value;
+  const ref = endVal || startVal;
+  if(ref){
+    const yr = parseInt(ref.slice(0,4));
+    if(yr >= 2020 && yr <= 2035) document.getElementById('pYear').value = yr;
+  }
+}
+
 function openProjectModal(){
   editingProject=null;
   document.getElementById('modalTitle').textContent='Novo Projeto';
   ['pName','pScope','pResponsible','pResultDesc','pResultUnit','pResultTarget','pResultAchieved'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('pArea').value=currentView!=='dashboard'?currentView:'qualidade';
-  document.getElementById('pYear').value=currentYear;
+  document.getElementById('pYear').value=currentYear;   // seeds with the currently selected year (real current year)
   document.getElementById('pStatus').value='em_andamento';
   document.getElementById('pStart').value='';document.getElementById('pEnd').value='';
   openModal('projectModal');
@@ -777,7 +796,28 @@ async function editProject(id){
   openModal('projectModal');
 }
 async function saveProject(){
-  const data={name:document.getElementById('pName').value.trim(),area:document.getElementById('pArea').value,year:parseInt(document.getElementById('pYear').value),responsible:document.getElementById('pResponsible').value.trim(),status:document.getElementById('pStatus').value,start_date:document.getElementById('pStart').value||null,end_date:document.getElementById('pEnd').value||null,scope:document.getElementById('pScope').value.trim(),planned_result:document.getElementById('pResultDesc').value.trim(),result_unit:document.getElementById('pResultUnit').value.trim(),result_target:parseFloat(document.getElementById('pResultTarget').value)||null,result_achieved:parseFloat(document.getElementById('pResultAchieved').value)||null};
+  const endDate   = document.getElementById('pEnd').value   || null;
+  const startDate = document.getElementById('pStart').value || null;
+  // Year is derived from end date first, then start date, then the manual field — never hardcoded
+  const refDate = endDate || startDate;
+  const year = refDate
+    ? parseInt(refDate.slice(0,4))
+    : parseInt(document.getElementById('pYear').value);
+
+  const data={
+    name:document.getElementById('pName').value.trim(),
+    area:document.getElementById('pArea').value,
+    year,
+    responsible:document.getElementById('pResponsible').value.trim(),
+    status:document.getElementById('pStatus').value,
+    start_date:startDate,
+    end_date:endDate,
+    scope:document.getElementById('pScope').value.trim(),
+    planned_result:document.getElementById('pResultDesc').value.trim(),
+    result_unit:document.getElementById('pResultUnit').value.trim(),
+    result_target:parseFloat(document.getElementById('pResultTarget').value)||null,
+    result_achieved:parseFloat(document.getElementById('pResultAchieved').value)||null,
+  };
   if(!data.name){alert('Informe o nome do projeto.');return;}
   if(editingProject)await sb.from('projects').update(data).eq('id',editingProject.id);
   else await sb.from('projects').insert(data);
