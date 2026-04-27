@@ -274,6 +274,52 @@
     .ornament{width:34px;height:3px;background:linear-gradient(90deg,var(--gold),var(--bordo-light));border-radius:2px;margin:5px 0 16px}
     .section-heading{font-family:'Playfair Display',serif;font-size:18px;color:var(--bordo-dark);margin-bottom:5px}
 
+    /* MY TASKS */
+    .mytasks-search-wrap{background:var(--white);border-radius:16px;padding:24px 28px;box-shadow:var(--shadow);margin-bottom:28px}
+    .mytasks-search-wrap h3{font-family:'Playfair Display',serif;font-size:17px;color:var(--bordo-dark);margin-bottom:6px}
+    .mytasks-search-wrap p{font-size:13px;color:var(--text-light);margin-bottom:18px}
+    .mytasks-input-row{display:flex;gap:12px;align-items:center}
+    .mytasks-input{flex:1;padding:11px 18px;border-radius:24px;border:2px solid var(--cream-dark);background:var(--cream);color:var(--text-dark);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:all .2s}
+    .mytasks-input:focus{border-color:var(--bordo);background:#fff;box-shadow:0 0 0 3px rgba(107,26,42,.08)}
+    .mytasks-input::placeholder{color:var(--text-light)}
+    .btn-mytasks-search{padding:11px 24px;border-radius:24px;background:var(--bordo);color:#fff;border:none;cursor:pointer;font-size:13.5px;font-weight:600;font-family:'DM Sans',sans-serif;transition:all .2s;white-space:nowrap}
+    .btn-mytasks-search:hover{background:var(--bordo-light)}
+    .mytasks-suggestions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .mytasks-suggestion{padding:5px 14px;border-radius:20px;background:var(--cream);border:1.5px solid var(--cream-dark);color:var(--text-mid);font-size:12px;font-weight:500;cursor:pointer;transition:all .2s}
+    .mytasks-suggestion:hover{background:var(--bordo);color:#fff;border-color:var(--bordo)}
+
+    .mytasks-result-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+    .mytasks-result-header h2{font-family:'Playfair Display',serif;font-size:20px;color:var(--bordo-dark)}
+    .mytasks-result-header p{font-size:13px;color:var(--text-light);margin-top:2px}
+    .mytasks-stats{display:flex;gap:10px;flex-wrap:wrap}
+    .mytasks-stat{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600}
+    .mytasks-stat.total{background:var(--cream-dark);color:var(--text-mid)}
+    .mytasks-stat.atrasada{background:#FDEDEC;color:var(--danger)}
+    .mytasks-stat.concluida{background:#E8F8F0;color:var(--success)}
+    .mytasks-stat.pendente{background:#FEF9E7;color:#B7950B}
+    .mytasks-stat.em_andamento{background:#EBF5FB;color:#1A5276}
+
+    .mytasks-filters{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+
+    .mytasks-project-group{margin-bottom:28px}
+    .mytasks-project-label{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--cream-dark)}
+    .mytasks-project-name{font-family:'Playfair Display',serif;font-size:15px;font-weight:700;color:var(--bordo-dark)}
+    .mytasks-project-meta{font-size:11.5px;color:var(--text-light)}
+
+    .mytasks-task-row{background:var(--white);border-radius:12px;padding:14px 18px;margin-bottom:8px;display:flex;gap:14px;align-items:flex-start;box-shadow:0 2px 8px rgba(107,26,42,.07);transition:transform .15s}
+    .mytasks-task-row:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
+    .mytasks-task-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:4px}
+    .mytasks-task-body{flex:1;min-width:0}
+    .mytasks-task-title{font-size:14px;font-weight:600;color:var(--text-dark)}
+    .mytasks-task-info{display:flex;gap:14px;flex-wrap:wrap;margin-top:5px}
+    .mytasks-task-chip{font-size:11.5px;color:var(--text-light);display:flex;align-items:center;gap:3px}
+    .mytasks-task-actions{display:flex;gap:6px;flex-shrink:0}
+    .mytasks-dep-badge{display:inline-flex;align-items:center;gap:4px;background:#EBF5FB;color:#1A5276;padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;margin-top:4px}
+    .mytasks-dep-badge.blocked{background:#FDEDEC;color:var(--danger)}
+    .mytasks-empty{text-align:center;padding:48px;color:var(--text-light)}
+    .mytasks-empty .emoji{font-size:40px;margin-bottom:12px}
+    .mytasks-empty p{font-size:14px}
+
     /* WIDE MODAL for Kanban/Gantt */
     .modal-wide{max-width:96vw;width:1100px}
   </style>
@@ -294,6 +340,8 @@
   <a class="sidebar-item" data-view="comercial" onclick="navigate('comercial')"><span class="icon">💼</span> Comercial</a>
   <a class="sidebar-item" data-view="marketing" onclick="navigate('marketing')"><span class="icon">📣</span> Marketing</a>
   <a class="sidebar-item" data-view="operacoes" onclick="navigate('operacoes')"><span class="icon">⚙️</span> Operações</a>
+  <div class="sidebar-section">Colaborador</div>
+  <a class="sidebar-item" data-view="mytasks" onclick="navigate('mytasks')"><span class="icon">👤</span> Minhas Tarefas</a>
   <div class="sidebar-bottom">
     <div class="year-label">Ano</div>
     <div class="year-selector" id="yearSelector"></div>
@@ -448,7 +496,15 @@ function setYear(y){ currentYear=y; renderYears(); render(); }
 function navigate(view){
   currentView=view;activeStatusFilter='todos';dateFrom='';dateTo='';
   document.querySelectorAll('.sidebar-item').forEach(el=>el.classList.toggle('active',el.dataset.view===view));
-  const titles={dashboard:['Painel Geral','Visão consolidada de todos os projetos'],qualidade:['Qualidade','Projetos da área de qualidade'],produtos:['Produtos','Projetos da área de produtos'],comercial:['Comercial','Projetos da área comercial'],marketing:['Marketing','Projetos de marketing'],operacoes:['Operações','Projetos operacionais']};
+  const titles={
+    dashboard:['Painel Geral','Visão consolidada de todos os projetos'],
+    qualidade:['Qualidade','Projetos da área de qualidade'],
+    produtos:['Produtos','Projetos da área de produtos'],
+    comercial:['Comercial','Projetos da área comercial'],
+    marketing:['Marketing','Projetos de marketing'],
+    operacoes:['Operações','Projetos operacionais'],
+    mytasks:['Minhas Tarefas','Busque tudo que foi atribuído a um colaborador'],
+  };
   const[title,sub]=titles[view]||['Projetos',''];
   document.getElementById('pageTitle').textContent=title;
   document.getElementById('pageSubtitle').textContent=sub;
@@ -456,7 +512,9 @@ function navigate(view){
 }
 async function render(){
   document.getElementById('mainContent').innerHTML='<div class="loading"><div class="spinner"></div> Carregando...</div>';
-  if(currentView==='dashboard')await renderDashboard();else await renderArea(currentView);
+  if(currentView==='dashboard') await renderDashboard();
+  else if(currentView==='mytasks') await renderMyTasks();
+  else await renderArea(currentView);
 }
 
 // ── DASHBOARD ──────────────────────────────────────────────────────────
@@ -754,6 +812,210 @@ function renderGantt(tasks,project){
   panel.innerHTML='<div class="gantt-wrap">'
     +'<div class="gantt-header"><div class="gantt-header-label">Tarefa</div><div class="gantt-header-months">'+months.join('')+'</div></div>'
     +rows+'</div>';
+}
+
+// ── MY TASKS VIEW ──────────────────────────────────────────────────────
+let _myTasksQuery = '';
+let _myTasksStatusFilter = 'todos';
+
+async function renderMyTasks(query){
+  const content = document.getElementById('mainContent');
+  _myTasksQuery = (query !== undefined ? query : _myTasksQuery) || '';
+  _myTasksStatusFilter = 'todos';
+
+  // Load known collaborators for suggestions (distinct responsible values)
+  const { data: people } = await sb
+    .from('tasks')
+    .select('responsible')
+    .not('responsible','is',null)
+    .neq('responsible','');
+
+  const names = [...new Set((people||[]).map(p => p.responsible.trim()).filter(Boolean))].sort();
+
+  const suggestionsHTML = names.slice(0, 12).map(n =>
+    '<button class="mytasks-suggestion" onclick="doMyTasksSearch(\'' + esc(n) + '\')">' + esc(n) + '</button>'
+  ).join('');
+
+  content.innerHTML =
+    '<div class="mytasks-search-wrap">'
+    + '<h3>👤 Busca por Colaborador</h3>'
+    + '<p>Digite o nome de um colaborador para ver todas as tarefas atribuídas a ele, em todos os projetos e áreas.</p>'
+    + '<div class="mytasks-input-row">'
+    + '<input class="mytasks-input" id="myTasksInput" type="text" placeholder="Ex: Ana Paula, Carlos..." value="' + esc(_myTasksQuery) + '" onkeydown="if(event.key===\'Enter\')doMyTasksSearch(document.getElementById(\'myTasksInput\').value)" />'
+    + '<button class="btn-mytasks-search" onclick="doMyTasksSearch(document.getElementById(\'myTasksInput\').value)">Buscar</button>'
+    + '</div>'
+    + (names.length ? '<div class="mytasks-suggestions"><span style="font-size:11px;color:var(--text-light);align-self:center">Colaboradores:</span>' + suggestionsHTML + '</div>' : '')
+    + '</div>'
+    + '<div id="myTasksResults"></div>';
+
+  // Auto-run if there's already a query
+  if(_myTasksQuery) await _renderMyTasksResults(_myTasksQuery);
+}
+
+async function doMyTasksSearch(val){
+  val = (val||'').trim();
+  if(!val) return;
+  _myTasksQuery = val;
+  document.getElementById('myTasksInput').value = val;
+  await _renderMyTasksResults(val);
+}
+
+async function _renderMyTasksResults(query){
+  const resultsDiv = document.getElementById('myTasksResults');
+  if(!resultsDiv) return;
+  resultsDiv.innerHTML = '<div class="loading"><div class="spinner"></div> Buscando...</div>';
+
+  // Fetch tasks assigned to this person across all active/ongoing projects
+  const { data: tasks } = await sb
+    .from('tasks')
+    .select('*, projects(id, name, area, status, end_date)')
+    .ilike('responsible', '%' + query + '%')
+    .order('due_date', { ascending: true, nullsFirst: false });
+
+  const all = (tasks || []).filter(t =>
+    // Only tasks from projects that are in progress or delayed (not cancelled)
+    t.projects && t.projects.status !== 'cancelado'
+  );
+
+  if(!all.length){
+    resultsDiv.innerHTML =
+      '<div class="mytasks-empty"><div class="emoji">🔍</div><p>Nenhuma tarefa encontrada para <strong>"' + esc(query) + '"</strong>.<br>Verifique o nome ou tente uma busca parcial.</p></div>';
+    return;
+  }
+
+  // Build a task map for dependency names
+  const taskIds = all.map(t => t.id);
+  const { data: depTasks } = await sb.from('tasks').select('id,title').in('id',
+    all.filter(t=>t.depends_on).map(t=>t.depends_on)
+  );
+  const depMap = {};
+  (depTasks||[]).forEach(t => { depMap[t.id] = t.title; });
+
+  // Stats
+  const stats = { total: all.length, pendente:0, em_andamento:0, concluida:0, atrasada:0 };
+  all.forEach(t => { if(stats[t.status]!==undefined) stats[t.status]++; });
+
+  // Status filter chips
+  const statusFilters = [
+    { key:'todos',       label:'Todas (' + all.length + ')' },
+    { key:'pendente',    label:'Pendentes (' + stats.pendente + ')' },
+    { key:'em_andamento',label:'Em Andamento (' + stats.em_andamento + ')' },
+    { key:'atrasada',    label:'Atrasadas (' + stats.atrasada + ')' },
+    { key:'concluida',   label:'Concluídas (' + stats.concluida + ')' },
+  ];
+
+  const filtersHTML = '<div class="mytasks-filters" id="myTasksFilters">'
+    + statusFilters.map(f =>
+        '<button class="filter-chip' + (f.key==='todos'?' active':'') + '" onclick="filterMyTasks(\'' + f.key + '\',this)">' + f.label + '</button>'
+      ).join('')
+    + '</div>';
+
+  // Group tasks by project
+  const byProject = {};
+  all.forEach(t => {
+    const pid = t.projects?.id || 'sem-projeto';
+    if(!byProject[pid]) byProject[pid] = { project: t.projects, tasks: [] };
+    byProject[pid].tasks.push(t);
+  });
+
+  const projectGroups = Object.values(byProject).map(({ project, tasks }) => {
+    const pStatusColor = { em_andamento:'#1A5276', atrasado:'#922B21', concluido:'#1E8449', cancelado:'#717D7E' };
+    const pStatusLbl   = { em_andamento:'Em Andamento', atrasado:'Atrasado', concluido:'Concluído', cancelado:'Cancelado' };
+    const pArea = project ? (areaLabels[project.area]||project.area) : '—';
+    const pIcon = project ? (areaIcons[project.area]||'📁') : '📁';
+
+    const taskRows = tasks.map(t => {
+      const dotColors = { pendente:'#C4A882', em_andamento:'#2563EB', concluida:'#2E7D4F', atrasada:'#C0392B' };
+      const dotColor = dotColors[t.status] || '#999';
+      const d = daysUntil(t.due_date);
+      let urgencyChip = '';
+      if(t.status !== 'concluida' && t.due_date){
+        if(d < 0)      urgencyChip = '<span style="background:#FDEDEC;color:var(--danger);padding:2px 7px;border-radius:6px;font-size:10px;font-weight:700">' + Math.abs(d) + 'd atraso</span>';
+        else if(d <= 7) urgencyChip = '<span style="background:#FEF3E2;color:var(--warning);padding:2px 7px;border-radius:6px;font-size:10px;font-weight:700">' + (d===0?'Hoje!':d===1?'Amanhã':'Em '+d+'d') + '</span>';
+      }
+      const depTitle = t.depends_on ? depMap[t.depends_on] : null;
+      const depHTML = depTitle
+        ? '<div class="mytasks-dep-badge' + (t.status!=='concluida'&&depTitle?' blocked':'') + '">⛓️ Após: ' + esc(depTitle) + '</div>'
+        : '';
+      const startInfo = t.start_date ? '<span class="mytasks-task-chip">📅 Início ' + fmtDate(t.start_date) + '</span>' : '';
+
+      return '<div class="mytasks-task-row" data-status="' + t.status + '">'
+        + '<div class="mytasks-task-dot" style="background:' + dotColor + '"></div>'
+        + '<div class="mytasks-task-body">'
+        + '<div class="mytasks-task-title">' + esc(t.title) + ' ' + urgencyChip + '</div>'
+        + '<div class="mytasks-task-info">'
+        + startInfo
+        + (t.due_date ? '<span class="mytasks-task-chip">🏁 Entrega ' + fmtDate(t.due_date) + '</span>' : '')
+        + '<span class="mytasks-task-chip"><span style="background:' + dotColor + ';width:7px;height:7px;border-radius:50%;display:inline-block"></span> ' + (taskStatusLabels[t.status]||t.status) + '</span>'
+        + (t.priority==='alta' ? '<span class="mytasks-task-chip" style="color:#E74C3C;font-weight:700">🔴 Alta prioridade</span>' : '')
+        + '</div>'
+        + (depHTML ? '<div style="margin-top:4px">' + depHTML + '</div>' : '')
+        + '</div>'
+        + '<div class="mytasks-task-actions">'
+        + '<button class="btn-icon" onclick="editTaskFromMyTasks(\'' + t.id + '\',\'' + (t.projects?.id||'') + '\')" title="Editar tarefa">✏️</button>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+
+    const projectClickable = project
+      ? 'style="cursor:pointer" onclick="navigate(\'' + project.area + '\');setTimeout(()=>openDetail(\'' + project.id + '\'),600)"'
+      : '';
+
+    return '<div class="mytasks-project-group" data-project-id="' + (project?.id||'') + '">'
+      + '<div class="mytasks-project-label" ' + projectClickable + ' title="Abrir projeto">'
+      + '<span style="font-size:18px">' + pIcon + '</span>'
+      + '<div>'
+      + '<div class="mytasks-project-name">' + esc(project?.name||'Projeto não encontrado') + '</div>'
+      + '<div class="mytasks-project-meta">'
+      + pArea
+      + (project?.status ? ' &nbsp;·&nbsp; <span style="color:' + (pStatusColor[project.status]||'#999') + ';font-weight:600">' + (pStatusLbl[project.status]||project.status) + '</span>' : '')
+      + (project?.end_date ? ' &nbsp;·&nbsp; Entrega: ' + fmtDate(project.end_date) : '')
+      + '</div>'
+      + '</div>'
+      + '<span style="margin-left:auto;font-size:11px;color:var(--text-light)">' + tasks.length + ' tarefa' + (tasks.length>1?'s':'') + ' &nbsp;→</span>'
+      + '</div>'
+      + taskRows
+      + '</div>';
+  }).join('');
+
+  resultsDiv.innerHTML =
+    '<div class="mytasks-result-header">'
+    + '<div><h2>Tarefas de <span style="color:var(--bordo)">' + esc(query) + '</span></h2>'
+    + '<p>' + all.length + ' tarefa' + (all.length>1?'s':'') + ' em ' + Object.keys(byProject).length + ' projeto' + (Object.keys(byProject).length>1?'s':'') + '</p></div>'
+    + '<div class="mytasks-stats">'
+    + (stats.atrasada   ? '<span class="mytasks-stat atrasada">🚨 ' + stats.atrasada + ' atrasada' + (stats.atrasada>1?'s':'') + '</span>' : '')
+    + (stats.em_andamento ? '<span class="mytasks-stat em_andamento">🔄 ' + stats.em_andamento + ' em andamento</span>' : '')
+    + (stats.pendente   ? '<span class="mytasks-stat pendente">⏳ ' + stats.pendente + ' pendente' + (stats.pendente>1?'s':'') + '</span>' : '')
+    + (stats.concluida  ? '<span class="mytasks-stat concluida">✅ ' + stats.concluida + ' concluída' + (stats.concluida>1?'s':'') + '</span>' : '')
+    + '</div></div>'
+    + filtersHTML
+    + '<div id="myTasksGroupsWrap">' + projectGroups + '</div>';
+}
+
+function filterMyTasks(status, btn){
+  document.querySelectorAll('#myTasksFilters .filter-chip').forEach(b => b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  document.querySelectorAll('.mytasks-task-row').forEach(row => {
+    row.style.display = (status === 'todos' || row.dataset.status === status) ? '' : 'none';
+  });
+  // Hide project groups that have no visible tasks
+  document.querySelectorAll('.mytasks-project-group').forEach(group => {
+    const visible = [...group.querySelectorAll('.mytasks-task-row')].some(r => r.style.display !== 'none');
+    group.style.display = visible ? '' : 'none';
+  });
+}
+
+async function editTaskFromMyTasks(taskId, projectId){
+  currentProjectId = projectId;
+  await editTask(taskId);
+  // After modal closes, refresh the My Tasks results
+  const origClose = window._origCloseModal;
+  document.getElementById('taskModal').addEventListener('transitionend', async function handler(e){
+    if(e.propertyName === 'opacity' && !document.getElementById('taskModal').classList.contains('open')){
+      document.getElementById('taskModal').removeEventListener('transitionend', handler);
+      if(currentView === 'mytasks') await _renderMyTasksResults(_myTasksQuery);
+    }
+  }, { once: false });
 }
 
 // ── SEARCH ─────────────────────────────────────────────────────────────
