@@ -416,16 +416,33 @@ function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
 
 // ── YEARS ──────────────────────────────────────────────────────────────
 async function getYears(){
-  const{data}=await sb.from('projects').select('year');
-  const realYear=new Date().getFullYear();
-  // Always include the real current year in the list, even if no projects exist yet
-  const y=[...new Set([realYear, ...(data||[]).map(r=>r.year)])].sort((a,b)=>b-a);
-  // Only fall back to years[0] if currentYear is not in the list at all
-  if(!y.includes(currentYear)) currentYear=realYear;
+  const { data } = await sb.from('projects').select('year');
+  const realYear = new Date().getFullYear();
+  const rows = data || [];
+
+  // Build sorted unique list — always include the real current year
+  const y = [...new Set([realYear, ...rows.map(r => r.year)])].sort((a,b) => b-a);
+
+  // On first load (currentYear still equals realYear) pick the most populated year
+  // so the user lands on the view with actual data instead of an empty 2026 screen
+  if(currentYear === realYear && rows.length > 0){
+    const counts = {};
+    rows.forEach(r => { counts[r.year] = (counts[r.year]||0) + 1; });
+    // Prefer realYear if it already has projects, otherwise pick the year with most projects
+    if(!counts[realYear]){
+      currentYear = parseInt(Object.entries(counts).sort((a,b)=>b[1]-a[1])[0][0]);
+    }
+  }
+
   return y;
 }
-async function renderYears(){const years=await getYears();document.getElementById('yearSelector').innerHTML=years.map(yr=>'<button class="year-btn'+(yr===currentYear?' active':'')+'" onclick="setYear('+yr+'">'+yr+'</button>').join('');}
-function setYear(y){currentYear=y;renderYears();render();}
+async function renderYears(){
+  const years = await getYears();
+  document.getElementById('yearSelector').innerHTML = years.map(yr =>
+    '<button class="year-btn' + (yr===currentYear?' active':'') + '" onclick="setYear(' + yr + ')">' + yr + '</button>'
+  ).join('');
+}
+function setYear(y){ currentYear=y; renderYears(); render(); }
 
 // ── NAV ────────────────────────────────────────────────────────────────
 function navigate(view){
