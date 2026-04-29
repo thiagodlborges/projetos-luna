@@ -276,6 +276,41 @@
     .ornament{width:34px;height:3px;background:linear-gradient(90deg,var(--gold),var(--bordo-light));border-radius:2px;margin:5px 0 16px}
     .section-heading{font-family:'Playfair Display',serif;font-size:18px;color:var(--bordo-dark);margin-bottom:5px}
 
+    /* CHECKLISTS */
+    .cl-section{margin-bottom:24px}
+    .cl-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+    .cl-title-wrap{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+    .cl-title{font-family:"Playfair Display",serif;font-size:15px;font-weight:700;color:var(--bordo-dark)}
+    .cl-progress{font-size:11px;color:var(--text-light);white-space:nowrap}
+    .cl-actions{display:flex;gap:6px;flex-shrink:0}
+    .cl-prog-bar{height:4px;background:var(--cream-dark);border-radius:2px;margin-bottom:12px;overflow:hidden}
+    .cl-prog-fill{height:100%;border-radius:2px;background:var(--success);transition:width .4s ease}
+    .cl-item{display:flex;align-items:flex-start;gap:10px;padding:9px 12px;background:var(--white);border-radius:10px;margin-bottom:6px;box-shadow:0 1px 4px rgba(107,26,42,.07);transition:all .2s;border:1.5px solid transparent}
+    .cl-item:hover{border-color:var(--cream-dark)}
+    .cl-item.checked{opacity:.6;background:var(--cream)}
+    .cl-checkbox{width:18px;height:18px;border-radius:5px;border:2px solid var(--marrom-pale);cursor:pointer;flex-shrink:0;margin-top:1px;appearance:none;-webkit-appearance:none;transition:all .15s;position:relative;background:#fff}
+    .cl-checkbox:checked{background:var(--success);border-color:var(--success)}
+    .cl-checkbox:checked::after{content:"✓";position:absolute;color:#fff;font-size:11px;font-weight:700;left:2px;top:-1px}
+    .cl-item-text{flex:1;font-size:13.5px;color:var(--text-dark);line-height:1.4;word-break:break-word;cursor:pointer}
+    .cl-item.checked .cl-item-text{text-decoration:line-through;color:var(--text-light)}
+    .cl-item-text-input{flex:1;font-size:13.5px;border:none;outline:none;background:transparent;font-family:"DM Sans",sans-serif;color:var(--text-dark);width:100%}
+    .cl-item-actions{display:flex;gap:4px;opacity:0;transition:opacity .15s}
+    .cl-item:hover .cl-item-actions{opacity:1}
+    .cl-add-item{display:flex;gap:8px;margin-top:4px;align-items:center}
+    .cl-add-input{flex:1;padding:8px 12px;border-radius:9px;border:1.5px dashed var(--cream-dark);background:var(--cream);font-family:"DM Sans",sans-serif;font-size:13px;outline:none;color:var(--text-dark);transition:all .2s}
+    .cl-add-input:focus{border-color:var(--bordo);border-style:solid;background:#fff}
+    .cl-add-input::placeholder{color:var(--text-light)}
+    .cl-add-btn{padding:7px 14px;border-radius:9px;background:var(--bordo);color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:600;font-family:"DM Sans",sans-serif;white-space:nowrap;transition:all .2s;flex-shrink:0}
+    .cl-add-btn:hover{background:var(--bordo-light)}
+    .cl-new-list{background:var(--white);border-radius:14px;padding:16px 18px;border:2px dashed var(--cream-dark);margin-bottom:16px;transition:border-color .2s}
+    .cl-new-list:hover{border-color:var(--bordo)}
+    .cl-new-list-row{display:flex;gap:10px;align-items:center}
+    .cl-new-list-input{flex:1;padding:9px 14px;border-radius:10px;border:1.5px solid var(--cream-dark);background:var(--cream);font-family:"DM Sans",sans-serif;font-size:14px;font-weight:600;outline:none;color:var(--text-dark);transition:all .2s}
+    .cl-new-list-input:focus{border-color:var(--bordo);background:#fff}
+    .cl-empty{text-align:center;padding:36px 20px;color:var(--text-light)}
+    .cl-empty .emoji{font-size:32px;margin-bottom:8px}
+    .cl-empty p{font-size:13px}
+
     /* AREAS MANAGEMENT */
     .area-list-row{display:grid;grid-template-columns:40px 1fr 56px 100px 100px 34px;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--cream-dark)}
     .area-list-row:last-child{border-bottom:none}
@@ -940,11 +975,12 @@ async function openDetail(projectId){
     +'</div>'
     +resultBox
     +'<div class="detail-section"><h4>Escopo</h4><p style="font-size:13px;line-height:1.7;color:var(--text-mid)">'+esc(p.scope||'Não informado.')+'</p></div>'
-    +'<div class="detail-tabs"><button class="detail-tab active" id="tab-lista" onclick="switchTab(\'lista\')">📋 Lista</button><button class="detail-tab" id="tab-tabela" onclick="switchTab(\'tabela\')">📊 Tabela</button><button class="detail-tab" id="tab-kanban" onclick="switchTab(\'kanban\')">🗂️ Kanban</button><button class="detail-tab" id="tab-gantt" onclick="switchTab(\'gantt\')">📅 Gantt</button></div>'
+    +'<div class="detail-tabs"><button class="detail-tab active" id="tab-lista" onclick="switchTab(\'lista\')">📋 Lista</button><button class="detail-tab" id="tab-tabela" onclick="switchTab(\'tabela\')">📊 Tabela</button><button class="detail-tab" id="tab-kanban" onclick="switchTab(\'kanban\')">🗂️ Kanban</button><button class="detail-tab" id="tab-gantt" onclick="switchTab(\'gantt\')">📅 Gantt</button><button class="detail-tab" id="tab-checklist" onclick="switchTab(\'checklist\')">☑️ Checklists</button></div>'
     +'<div id="tab-panel-lista" class="tab-panel active">'+buildTaskList(tasks)+'</div>'
     +'<div id="tab-panel-tabela" class="tab-panel"></div>'
     +'<div id="tab-panel-kanban" class="tab-panel"></div>'
-    +'<div id="tab-panel-gantt" class="tab-panel"></div>';
+    +'<div id="tab-panel-gantt" class="tab-panel"></div>'
+    +'<div id="tab-panel-checklist" class="tab-panel"></div>';
 
   // Store tasks for tab switching
   window._currentTasks=tasks;
@@ -959,6 +995,223 @@ function switchTab(tab){
   if(tab==='tabela')renderTaskTable(window._currentTasks);
   if(tab==='kanban')renderKanban(window._currentTasks);
   if(tab==='gantt')renderGantt(window._currentTasks,window._currentProject);
+  if(tab==='checklist')renderChecklistTab();
+}
+
+// ── CHECKLISTS ─────────────────────────────────────────────────────────
+
+async function renderChecklistTab(){
+  const panel = document.getElementById('tab-panel-checklist');
+  if(!panel) return;
+  panel.innerHTML = '<div class="loading"><div class="spinner"></div> Carregando checklists...</div>';
+
+  const { data: lists } = await sb
+    .from('checklists')
+    .select('*, checklist_items(*)')
+    .eq('project_id', currentProjectId)
+    .order('sort_order')
+    .order('created_at');
+
+  panel.innerHTML = buildChecklistTabHTML(lists || []);
+
+  // Focus new-list input
+  const inp = panel.querySelector('.cl-new-list-input');
+  if(inp) inp.focus();
+}
+
+function buildChecklistTabHTML(lists){
+  const newListForm =
+    '<div class="cl-new-list">'
+    + '<div style="font-size:10.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text-light);margin-bottom:10px">+ Nova Lista de Checklist</div>'
+    + '<div class="cl-new-list-row">'
+    + '<input class="cl-new-list-input" id="newListTitle" placeholder="Ex: Materiais de ponto de venda, Itens a entregar na loja..." onkeydown="if(event.key===\'Enter\')saveNewChecklist()" />'
+    + '<button class="cl-add-btn" onclick="saveNewChecklist()">Criar lista</button>'
+    + '</div></div>';
+
+  if(!lists.length){
+    return newListForm
+      + '<div class="cl-empty"><div class="emoji">☑️</div><p>Nenhuma lista criada ainda.<br>Crie sua primeira lista de checklist acima.</p></div>';
+  }
+
+  const listsHTML = lists.map(list => buildChecklistHTML(list)).join('');
+  return newListForm + listsHTML;
+}
+
+function buildChecklistHTML(list){
+  const items = (list.checklist_items || []).sort((a,b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at));
+  const total   = items.length;
+  const checked = items.filter(i => i.checked).length;
+  const pct     = total ? Math.round(checked / total * 100) : 0;
+  const done    = total > 0 && checked === total;
+
+  const progressBar = total
+    ? '<div class="cl-prog-bar"><div class="cl-prog-fill" style="width:'+pct+'%"></div></div>'
+    : '';
+
+  const itemsHTML = items.map(item =>
+    '<div class="cl-item'+(item.checked?' checked':'')+'" id="cli-'+item.id+'">'
+    + '<input type="checkbox" class="cl-checkbox"'+(item.checked?' checked':'')+' onchange="toggleChecklistItem(\''+item.id+'\',this.checked,\''+list.id+'\')" />'
+    + '<span class="cl-item-text" ondblclick="startEditItem(\''+item.id+'\')" title="Duplo clique para editar">'+esc(item.text)+'</span>'
+    + '<div class="cl-item-actions">'
+    + '<button class="btn-icon" onclick="startEditItem(\''+item.id+'\')" title="Editar item" style="width:24px;height:24px;font-size:11px">✏️</button>'
+    + '<button class="btn-icon danger" onclick="deleteChecklistItem(\''+item.id+'\',\''+list.id+'\')" title="Remover item" style="width:24px;height:24px;font-size:11px">×</button>'
+    + '</div></div>'
+  ).join('');
+
+  const addRow =
+    '<div class="cl-add-item">'
+    + '<input class="cl-add-input" id="newitem-'+list.id+'" placeholder="Adicionar item... (Enter para confirmar)" onkeydown="if(event.key===\'Enter\')addChecklistItem(\''+list.id+'\')" />'
+    + '<button class="cl-add-btn" onclick="addChecklistItem(\''+list.id+'\')">+ Adicionar</button>'
+    + '</div>';
+
+  return '<div class="cl-section" id="cls-'+list.id+'">'
+    + '<div class="cl-header">'
+    + '<div class="cl-title-wrap">'
+    + '<span style="font-size:18px">'+(done ? '✅' : '📋')+'</span>'
+    + '<span class="cl-title">'+esc(list.title)+'</span>'
+    + '<span class="cl-progress">'+checked+'/'+total+(total?'  ('+pct+'%)':'')+'</span>'
+    + '</div>'
+    + '<div class="cl-actions">'
+    + '<button class="btn-icon" onclick="renameChecklist(\''+list.id+'\',\''+esc(list.title)+'\')" title="Renomear lista" style="font-size:12px">✏️</button>'
+    + '<button class="btn-icon" onclick="clearCheckedItems(\''+list.id+'\')" title="Limpar marcados" style="font-size:12px">🧹</button>'
+    + '<button class="btn-icon danger" onclick="deleteChecklist(\''+list.id+'\')" title="Excluir lista" style="font-size:12px">🗑️</button>'
+    + '</div></div>'
+    + progressBar
+    + itemsHTML
+    + addRow
+    + '</div>';
+}
+
+// ── Create new checklist ───────────────────────────────────────────────
+async function saveNewChecklist(){
+  const inp = document.getElementById('newListTitle');
+  const title = inp ? inp.value.trim() : '';
+  if(!title) return;
+  inp.value = '';
+  inp.disabled = true;
+
+  const { data: existing } = await sb.from('checklists').select('sort_order').eq('project_id', currentProjectId).order('sort_order', {ascending:false}).limit(1);
+  const nextOrder = existing && existing.length ? (existing[0].sort_order || 0) + 1 : 1;
+
+  await sb.from('checklists').insert({ project_id: currentProjectId, title, sort_order: nextOrder });
+  inp.disabled = false;
+  await renderChecklistTab();
+}
+
+// ── Rename checklist ───────────────────────────────────────────────────
+async function renameChecklist(listId, currentTitle){
+  const newTitle = prompt('Novo nome da lista:', currentTitle);
+  if(!newTitle || newTitle.trim() === currentTitle) return;
+  await sb.from('checklists').update({ title: newTitle.trim() }).eq('id', listId);
+  await renderChecklistTab();
+}
+
+// ── Delete checklist ───────────────────────────────────────────────────
+async function deleteChecklist(listId){
+  if(!confirm('Excluir esta lista e todos os seus itens?')) return;
+  await sb.from('checklist_items').delete().eq('checklist_id', listId);
+  await sb.from('checklists').delete().eq('id', listId);
+  await renderChecklistTab();
+}
+
+// ── Add item ───────────────────────────────────────────────────────────
+async function addChecklistItem(listId){
+  const inp = document.getElementById('newitem-'+listId);
+  const text = inp ? inp.value.trim() : '';
+  if(!text) return;
+  inp.value = '';
+
+  const { data: existing } = await sb.from('checklist_items').select('sort_order').eq('checklist_id', listId).order('sort_order', {ascending:false}).limit(1);
+  const nextOrder = existing && existing.length ? (existing[0].sort_order || 0) + 1 : 1;
+
+  await sb.from('checklist_items').insert({ checklist_id: listId, text, sort_order: nextOrder });
+  await renderChecklistTab();
+
+  // Re-focus the input of this list after re-render
+  const newInp = document.getElementById('newitem-'+listId);
+  if(newInp) newInp.focus();
+}
+
+// ── Toggle item ────────────────────────────────────────────────────────
+async function toggleChecklistItem(itemId, checked, listId){
+  // Optimistic UI — update DOM immediately
+  const row = document.getElementById('cli-'+itemId);
+  if(row){
+    row.classList.toggle('checked', checked);
+    const txt = row.querySelector('.cl-item-text');
+    if(txt){ txt.style.textDecoration = checked ? 'line-through' : ''; txt.style.color = checked ? 'var(--text-light)' : ''; }
+  }
+  await sb.from('checklist_items').update({ checked }).eq('id', itemId);
+  // Update just the progress bar + header — avoid full re-render for smoothness
+  await refreshChecklistHeader(listId);
+}
+
+async function refreshChecklistHeader(listId){
+  const { data: list } = await sb.from('checklists').select('*, checklist_items(*)').eq('id', listId).single();
+  if(!list) return;
+  const section = document.getElementById('cls-'+listId);
+  if(!section) return;
+  const items   = list.checklist_items || [];
+  const total   = items.length;
+  const checked = items.filter(i => i.checked).length;
+  const pct     = total ? Math.round(checked/total*100) : 0;
+  const done    = total > 0 && checked === total;
+
+  const titleWrap = section.querySelector('.cl-title-wrap');
+  if(titleWrap){
+    const iconEl = titleWrap.querySelector('span:first-child');
+    if(iconEl) iconEl.textContent = done ? '✅' : '📋';
+    const progEl = titleWrap.querySelector('.cl-progress');
+    if(progEl) progEl.textContent = checked+'/'+total+(total?'  ('+pct+'%)':'');
+  }
+  const fill = section.querySelector('.cl-prog-fill');
+  if(fill) fill.style.width = pct+'%';
+}
+
+// ── Inline edit item ───────────────────────────────────────────────────
+function startEditItem(itemId){
+  const row  = document.getElementById('cli-'+itemId);
+  if(!row) return;
+  const span = row.querySelector('.cl-item-text');
+  if(!span) return;
+  const current = span.textContent;
+
+  const input = document.createElement('input');
+  input.type  = 'text';
+  input.value = current;
+  input.className = 'cl-item-text-input';
+  span.replaceWith(input);
+  input.focus();
+  input.select();
+
+  async function commit(){
+    const val = input.value.trim();
+    if(val && val !== current){
+      await sb.from('checklist_items').update({ text: val }).eq('id', itemId);
+    }
+    await renderChecklistTab();
+  }
+
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', e => {
+    if(e.key === 'Enter') { e.preventDefault(); commit(); }
+    if(e.key === 'Escape'){ span.textContent = current; input.replaceWith(span); }
+  });
+}
+
+// ── Delete item ────────────────────────────────────────────────────────
+async function deleteChecklistItem(itemId, listId){
+  await sb.from('checklist_items').delete().eq('id', itemId);
+  await renderChecklistTab();
+}
+
+// ── Clear checked items ────────────────────────────────────────────────
+async function clearCheckedItems(listId){
+  const { data: items } = await sb.from('checklist_items').select('id').eq('checklist_id', listId).eq('checked', true);
+  if(!items || !items.length){ alert('Nenhum item marcado para remover.'); return; }
+  if(!confirm('Remover os '+items.length+' item(ns) marcados?')) return;
+  await sb.from('checklist_items').delete().eq('checklist_id', listId).eq('checked', true);
+  await renderChecklistTab();
 }
 
 // ── TASK TABLE VIEW ────────────────────────────────────────────────────
@@ -1798,11 +2051,13 @@ async function generateProjectReport(){
   btn.textContent = '⏳';
 
   try {
-    const [{ data: p }, { data: tasks }] = await Promise.all([
+    const [{ data: p }, { data: tasks }, { data: clists }] = await Promise.all([
       sb.from('projects').select('*').eq('id', currentProjectId).single(),
-      sb.from('tasks').select('*').eq('project_id', currentProjectId).order('sort_order').order('created_at')
+      sb.from('tasks').select('*').eq('project_id', currentProjectId).order('sort_order').order('created_at'),
+      sb.from('checklists').select('*, checklist_items(*)').eq('project_id', currentProjectId).order('sort_order')
     ]);
-    const taskList = tasks || [];
+    const taskList   = tasks  || [];
+    const checkLists = clists || [];
     const taskMap  = {};
     taskList.forEach(t => { taskMap[t.id] = t; });
 
@@ -2053,6 +2308,75 @@ async function generateProjectReport(){
         },
         margin:{ left:ML, right:MR },
       });
+    }
+
+    // ── CHECKLISTS SECTION ────────────────────────────────────────────
+    if(checkLists.length > 0){
+      let cy = doc.lastAutoTable ? doc.lastAutoTable.finalY + 10 : y + 10;
+      if(cy > PH - 60){ doc.addPage(); cy = MT; }
+
+      doc.setFillColor(...BORDO);
+      doc.rect(ML, cy, CW, 8, 'F');
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(9);
+      doc.setTextColor(...WHITE);
+      doc.text('CHECKLISTS', ML+4, cy+5.5);
+      cy += 11;
+
+      for(const list of checkLists){
+        if(cy > PH - 40){ doc.addPage(); cy = MT; }
+        const items = (list.checklist_items||[]).sort((a,b)=>a.sort_order-b.sort_order);
+        const total   = items.length;
+        const checked = items.filter(i=>i.checked).length;
+        const pct2    = total ? Math.round(checked/total*100) : 0;
+
+        // List title bar
+        doc.setFillColor(...CREAM);
+        doc.roundedRect(ML, cy, CW, 8, 1, 1, 'F');
+        doc.setFont('helvetica','bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(...BORDO);
+        doc.text(list.title, ML+4, cy+5.5);
+        doc.setFont('helvetica','normal');
+        doc.setFontSize(7.5);
+        doc.setTextColor(...LIGHT);
+        doc.text(checked+'/'+total+' ('+pct2+'%)', PW-MR, cy+5.5, {align:'right'});
+
+        // Progress bar
+        cy += 9;
+        doc.setFillColor(220,210,200);
+        doc.roundedRect(ML, cy, CW, 2, 1, 1, 'F');
+        if(pct2 > 0){
+          doc.setFillColor(...SUCCESS);
+          doc.roundedRect(ML, cy, CW*pct2/100, 2, 1, 1, 'F');
+        }
+        cy += 5;
+
+        // Items
+        for(const item of items){
+          if(cy > PH - 20){ doc.addPage(); cy = MT; }
+          const boxX = ML+2;
+          // Checkbox
+          doc.setDrawColor(180,160,140);
+          doc.setLineWidth(0.4);
+          doc.rect(boxX, cy, 3.5, 3.5);
+          if(item.checked){
+            doc.setFillColor(...SUCCESS);
+            doc.rect(boxX, cy, 3.5, 3.5, 'F');
+            doc.setFont('helvetica','bold');
+            doc.setFontSize(5);
+            doc.setTextColor(...WHITE);
+            doc.text('✓', boxX+0.5, cy+3);
+          }
+          doc.setFont('helvetica','normal');
+          doc.setFontSize(8);
+          doc.setTextColor(item.checked ? 160 : 44, item.checked ? 140 : 26, item.checked ? 120 : 14);
+          const itemLines = doc.splitTextToSize(item.text, CW-8);
+          doc.text(itemLines[0]+(itemLines.length>1?'...':''), ML+8, cy+3);
+          cy += 6;
+        }
+        cy += 6;
+      }
     }
 
     // ── FOOTER ────────────────────────────────────────────────────────
