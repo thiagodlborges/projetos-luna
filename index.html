@@ -157,6 +157,8 @@
     .btn-edit:hover{background:var(--bordo);color:#fff;border-color:var(--bordo)}
     .btn-delete-proj{padding:7px 11px;border-radius:8px;background:var(--cream);color:var(--danger);border:1px solid #F5C6C6;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;transition:all .2s;flex-shrink:0}
     .btn-delete-proj:hover{background:var(--danger);color:#fff;border-color:var(--danger)}
+    .btn-dup-proj{padding:7px 11px;border-radius:8px;background:var(--cream);color:var(--marrom);border:1px solid var(--cream-dark);cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;transition:all .2s;flex-shrink:0}
+    .btn-dup-proj:hover{background:var(--gold);color:var(--bordo-dark);border-color:var(--gold)}
 
     /* MODAL */
     .modal-overlay{position:fixed;inset:0;background:rgba(44,26,14,.6);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:20px;opacity:0;pointer-events:none;transition:opacity .3s}
@@ -273,6 +275,15 @@
     .empty-state p{font-size:13.5px}
     .ornament{width:34px;height:3px;background:linear-gradient(90deg,var(--gold),var(--bordo-light));border-radius:2px;margin:5px 0 16px}
     .section-heading{font-family:'Playfair Display',serif;font-size:18px;color:var(--bordo-dark);margin-bottom:5px}
+
+    /* AREAS MANAGEMENT */
+    .area-list-row{display:grid;grid-template-columns:40px 1fr 56px 100px 100px 34px;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--cream-dark)}
+    .area-list-row:last-child{border-bottom:none}
+    .area-icon-preview{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+    .area-list-row input[type=text]{padding:7px 10px;border-radius:8px;border:1.5px solid var(--cream-dark);background:var(--cream);font-family:"DM Sans",sans-serif;font-size:13px;outline:none;width:100%}
+    .area-icon-input{text-align:center;font-size:18px !important}
+    .btn-area-del{width:32px;height:32px;border-radius:8px;background:var(--cream);color:var(--danger);border:1px solid #F5C6C6;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+    .btn-area-del:hover{background:var(--danger);color:#fff}
 
     /* SIDEBAR OVERLAY (mobile) */
     .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(44,26,14,.55);z-index:99;backdrop-filter:blur(2px)}
@@ -496,12 +507,11 @@
   </div>
   <div class="sidebar-section">Visão</div>
   <a class="sidebar-item active" data-view="dashboard" onclick="navigate('dashboard')"><span class="icon">📊</span> Painel Geral</a>
-  <div class="sidebar-section">Áreas</div>
-  <a class="sidebar-item" data-view="qualidade" onclick="navigate('qualidade')"><span class="icon">✅</span> Qualidade</a>
-  <a class="sidebar-item" data-view="produtos" onclick="navigate('produtos')"><span class="icon">📦</span> Produtos</a>
-  <a class="sidebar-item" data-view="comercial" onclick="navigate('comercial')"><span class="icon">💼</span> Comercial</a>
-  <a class="sidebar-item" data-view="marketing" onclick="navigate('marketing')"><span class="icon">📣</span> Marketing</a>
-  <a class="sidebar-item" data-view="operacoes" onclick="navigate('operacoes')"><span class="icon">⚙️</span> Operações</a>
+  <div class="sidebar-section" style="display:flex;align-items:center;justify-content:space-between;padding-right:16px">
+    <span>Áreas</span>
+    <button onclick="openAreasModal()" title="Gerenciar áreas" style="background:rgba(255,255,255,.12);border:none;border-radius:6px;color:rgba(255,255,255,.6);cursor:pointer;font-size:11px;padding:2px 7px;font-family:'DM Sans',sans-serif;transition:all .2s" onmouseover="this.style.background='rgba(255,255,255,.22)'" onmouseout="this.style.background='rgba(255,255,255,.12)'">⚙️ Editar</button>
+  </div>
+  <div id="sidebarAreas"><!-- populated by renderSidebarAreas() --></div>
   <div class="sidebar-section">Colaborador</div>
   <a class="sidebar-item" data-view="mytasks" onclick="navigate('mytasks')"><span class="icon">👤</span> Minhas Tarefas</a>
   <div class="sidebar-bottom">
@@ -552,12 +562,7 @@
   <button class="mobile-nav-item" data-view="mytasks" onclick="navigateMobile('mytasks',this)">
     <span class="mnav-icon">👤</span>Tarefas
   </button>
-  <button class="mobile-nav-item" data-view="qualidade" onclick="navigateMobile('qualidade',this)">
-    <span class="mnav-icon">✅</span>Qualidade
-  </button>
-  <button class="mobile-nav-item" data-view="comercial" onclick="navigateMobile('comercial',this)">
-    <span class="mnav-icon">💼</span>Comercial
-  </button>
+  <div id="mobileNavAreas" style="display:contents"><!-- populated dynamically --></div>
   <button class="mobile-nav-item" id="moreNavBtn" onclick="openSidebar()">
     <span class="mnav-icon">☰</span>Mais
   </button>
@@ -570,7 +575,7 @@
     <div class="modal-body">
       <div class="form-grid">
         <div class="form-group form-full"><label>Nome do Projeto</label><input type="text" id="pName" placeholder="Ex: Certificação ISO 9001" /></div>
-        <div class="form-group"><label>Área</label><select id="pArea"><option value="qualidade">Qualidade</option><option value="produtos">Produtos</option><option value="comercial">Comercial</option><option value="marketing">Marketing</option><option value="operacoes">Operações</option></select></div>
+        <div class="form-group"><label>Área</label><select id="pArea"><!-- populated by renderAreaSelects() --></select></div>
         <div class="form-group"><label>Ano</label><input type="number" id="pYear" min="2020" max="2035" /></div>
         <div class="form-group"><label>Responsável</label><input type="text" id="pResponsible" placeholder="Nome do responsável" /></div>
         <div class="form-group"><label>Status</label><select id="pStatus"><option value="em_andamento">Em Andamento</option><option value="concluido">Concluído</option><option value="atrasado">Atrasado</option><option value="cancelado">Cancelado</option></select></div>
@@ -590,7 +595,13 @@
 <!-- DETAIL MODAL -->
 <div class="modal-overlay" id="detailModal">
   <div class="modal modal-wide">
-    <div class="modal-header"><h3 id="detailTitle">Detalhes do Projeto</h3><button class="modal-close" onclick="closeModal('detailModal')">×</button></div>
+    <div class="modal-header">
+      <h3 id="detailTitle">Detalhes do Projeto</h3>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn-report" id="btnProjectReport" onclick="generateProjectReport()" title="Gerar PDF deste projeto" style="padding:7px 14px;font-size:12px">📄 PDF</button>
+        <button class="modal-close" onclick="closeModal('detailModal')">×</button>
+      </div>
+    </div>
     <div class="modal-body" id="detailBody"></div>
   </div>
 </div>
@@ -629,7 +640,32 @@
   </div>
 </div>
 
-<!-- TASK COMPLETION MODAL -->
+<!-- AREAS MANAGEMENT MODAL -->
+<div class="modal-overlay" id="areasModal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <h3>Gerenciar Áreas</h3>
+      <button class="modal-close" onclick="closeModal('areasModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-light);margin-bottom:20px">Edite os nomes e ícones das áreas existentes, adicione novas ou remova as que não usa mais.</p>
+      <div id="areasListUI"><!-- populated --></div>
+      <div style="border-top:1px solid var(--cream-dark);padding-top:18px;margin-top:6px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text-light);margin-bottom:12px">Nova Área</div>
+        <div style="display:grid;grid-template-columns:1fr 70px 110px 110px;gap:10px;align-items:end">
+          <div class="form-group"><label>Nome</label><input type="text" id="newAreaLabel" placeholder="Ex: Financeiro" /></div>
+          <div class="form-group"><label>Ícone</label><input type="text" id="newAreaIcon" placeholder="💰" maxlength="4" style="text-align:center;font-size:18px" /></div>
+          <div class="form-group"><label>Cor de fundo</label><input type="color" id="newAreaBg" value="#EBF5FB" style="height:38px;padding:3px 6px;cursor:pointer" /></div>
+          <div class="form-group"><label>Cor do texto</label><input type="color" id="newAreaFg" value="#1A5276" style="height:38px;padding:3px 6px;cursor:pointer" /></div>
+        </div>
+        <button class="btn-primary" onclick="addArea()" style="margin-top:10px;width:100%">+ Adicionar Área</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('areasModal')">Fechar</button>
+    </div>
+  </div>
+</div>
 <div class="modal-overlay" id="completionModal">
   <div class="modal completion-modal">
     <div class="modal-header">
@@ -682,8 +718,8 @@ let charts={}, searchTimeout=null;
 let activeStatusFilter='todos', dateFilterType='entrega', dateFrom='', dateTo='';
 let currentDetailTab='lista';
 
-const areaLabels={qualidade:'Qualidade',produtos:'Produtos',comercial:'Comercial',marketing:'Marketing',operacoes:'Operações'};
-const areaIcons={qualidade:'✅',produtos:'📦',comercial:'💼',marketing:'📣',operacoes:'⚙️'};
+// areaLabels, areaIcons, areaBgColors, areaFgColors, areasOrder
+// are declared and populated by loadAreas() below — do not redeclare here
 const statusLabels={em_andamento:'Em Andamento',concluido:'Concluído',atrasado:'Atrasado',cancelado:'Cancelado'};
 const taskStatusLabels={pendente:'Pendente',em_andamento:'Em Andamento',concluida:'Concluída',atrasada:'Atrasada'};
 const MONTHS_PT=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -749,7 +785,7 @@ async function render(){
   document.getElementById('mainContent').innerHTML='<div class="loading"><div class="spinner"></div> Carregando...</div>';
   if(currentView==='dashboard') await renderDashboard();
   else if(currentView==='mytasks') await renderMyTasks();
-  else await renderArea(currentView);
+  else await renderArea(currentView); // works for any area id, static or dynamic
 }
 
 // ── DASHBOARD ──────────────────────────────────────────────────────────
@@ -766,7 +802,7 @@ async function renderDashboard(){
   const overdue=tasks.filter(t=>t.due_date&&t.status!=='concluida'&&new Date(t.due_date+'T00:00:00')<today);
   const upcoming=tasks.filter(t=>{if(!t.due_date||t.status==='concluida'||t.status==='atrasada')return false;const d=new Date(t.due_date+'T00:00:00');return d>=today&&d<=in7;});
   const total=all.length,andamento=all.filter(p=>p.status==='em_andamento').length,atrasados=all.filter(p=>p.status==='atrasado').length,concluidos=all.filter(p=>p.status==='concluido').length;
-  const byArea={};['qualidade','produtos','comercial','marketing','operacoes'].forEach(a=>{byArea[a]=all.filter(p=>p.area===a).length;});
+  const byArea={};areasOrder.forEach(a=>{byArea[a]=all.filter(p=>p.area===a).length;});
   const byStatus={em_andamento:andamento,atrasado:atrasados,concluido:concluidos,cancelado:all.filter(p=>p.status==='cancelado').length};
 
   const mkAlert=(t,cls)=>{
@@ -804,7 +840,7 @@ function applyDateFilter(){dateFrom=document.getElementById('dateFrom')?.value||
 function clearDateFilters(){dateFrom='';dateTo='';const df=document.getElementById('dateFrom');const dt=document.getElementById('dateTo');if(df)df.value='';if(dt)dt.value='';applyAllFilters();}
 function filterStatus(s,btn){activeStatusFilter=s;document.querySelectorAll('#dashFilters .filter-chip').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');applyAllFilters();}
 function applyAllFilters(){document.querySelectorAll('#projectsGrid .project-card').forEach(c=>{const s=c.dataset.status;const ref=dateFilterType==='entrega'?(c.dataset.end||''):(c.dataset.start||'');let show=true;if(activeStatusFilter!=='todos'&&s!==activeStatusFilter)show=false;if(dateFrom&&ref&&ref<dateFrom)show=false;if(dateTo&&ref&&ref>dateTo)show=false;if((dateFrom||dateTo)&&!ref)show=false;c.style.display=show?'':'none';});}
-function renderChartArea(byArea){const ctx=document.getElementById('chartArea');if(!ctx)return;if(charts.area)charts.area.destroy();charts.area=new Chart(ctx,{type:'bar',data:{labels:Object.keys(byArea).map(a=>areaLabels[a]),datasets:[{data:Object.values(byArea),backgroundColor:['#7D3C98','#1A5276','#1E8449','#B7950B','#922B21'],borderRadius:8}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});}
+function renderChartArea(byArea){const ctx=document.getElementById('chartArea');if(!ctx)return;if(charts.area)charts.area.destroy();const colors=Object.keys(byArea).map(a=>areaFgColors[a]||'#888');charts.area=new Chart(ctx,{type:'bar',data:{labels:Object.keys(byArea).map(a=>areaLabels[a]||a),datasets:[{data:Object.values(byArea),backgroundColor:colors,borderRadius:8}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});}
 function renderChartStatus(byStatus){const ctx=document.getElementById('chartStatus');if(!ctx)return;if(charts.status)charts.status.destroy();charts.status=new Chart(ctx,{type:'doughnut',data:{labels:['Em Andamento','Atrasado','Concluído','Cancelado'],datasets:[{data:Object.values(byStatus),backgroundColor:['#2563EB','#C0392B','#2E7D4F','#95A5A6'],borderWidth:0}]},options:{plugins:{legend:{position:'bottom'}},cutout:'65%'}});}
 
 // ── AREA VIEW ──────────────────────────────────────────────────────────
@@ -825,11 +861,15 @@ function renderProjectCard(p){
   const pct=p.result_target?Math.min(Math.round((p.result_achieved||0)/p.result_target*100),150):0;
   const barClass=pct>=100?'progress-over':pct>=60?'progress-ok':'progress-low';
   const pctColor=pct>=100?'#5DADE2':pct>=60?'var(--gold-light)':'#EC7063';
+  const areaBg = areaBgColors[p.area] || '#F5EEF8';
+  const areaFg = areaFgColors[p.area] || '#7D3C98';
   const resultBox=p.planned_result?'<div class="result-box"><div class="result-box-label">🎯 Resultado Mensurável</div><div class="result-box-title">'+esc(p.planned_result)+'</div><div class="result-compare"><div class="result-col"><div class="result-col-label">Previsto</div><div class="result-col-value">'+fmtNum(p.result_target,p.result_unit)+'</div></div><div class="result-col"><div class="result-col-label">Realizado</div><div class="result-col-value achieved">'+fmtNum(p.result_achieved,p.result_unit)+'</div></div><div class="result-col" style="display:flex;align-items:flex-end"><div style="font-size:24px;font-weight:700;color:'+pctColor+'">'+pct+'%</div></div></div><div class="result-progress"><div class="result-progress-bar '+barClass+'" style="width:'+Math.min(pct,100)+'%"></div></div></div>':'';
   return '<div class="project-card" data-status="'+p.status+'" data-start="'+(p.start_date||'')+'" data-end="'+(p.end_date||'')+'">'
-    +'<div class="project-card-header"><div><div class="project-area-badge area-'+p.area+'">'+areaIcons[p.area]+' '+areaLabels[p.area]+'</div><div class="project-name">'+esc(p.name)+'</div><div style="font-size:11px;color:var(--text-light);margin-top:3px">👤 '+esc(p.responsible||'-')+' · 📅 '+fmtDate(p.end_date)+'</div></div><span class="status-badge status-'+p.status+'">'+statusLabels[p.status]+'</span></div>'
+    +'<div class="project-card-header"><div>'
+    +'<div class="project-area-badge" style="background:'+areaBg+';color:'+areaFg+'">'+( areaIcons[p.area]||'📁')+' '+(areaLabels[p.area]||p.area)+'</div>'
+    +'<div class="project-name">'+esc(p.name)+'</div><div style="font-size:11px;color:var(--text-light);margin-top:3px">👤 '+esc(p.responsible||'-')+' · 📅 '+fmtDate(p.end_date)+'</div></div><span class="status-badge status-'+p.status+'">'+statusLabels[p.status]+'</span></div>'
     +'<div class="project-card-body"><div class="project-scope">'+esc(p.scope||'Sem descrição de escopo.')+'</div>'+resultBox+'</div>'
-    +'<div class="project-actions"><button class="btn-edit" onclick="openDetail(\''+p.id+'\')">Ver Detalhes</button><button class="btn-edit" onclick="editProject(\''+p.id+'\')">✏️ Editar</button><button class="btn-delete-proj" onclick="confirmDeleteProject(\''+p.id+'\',\''+esc(p.name)+'\')" title="Excluir projeto">🗑️</button></div></div>';
+    +'<div class="project-actions"><button class="btn-edit" onclick="openDetail(\''+p.id+'\')">Ver Detalhes</button><button class="btn-edit" onclick="editProject(\''+p.id+'\')">✏️ Editar</button><button class="btn-dup-proj" onclick="duplicateProject(\''+p.id+'\')" title="Duplicar projeto">⧉ Duplicar</button><button class="btn-delete-proj" onclick="confirmDeleteProject(\''+p.id+'\',\''+esc(p.name)+'\')" title="Excluir projeto">🗑️</button></div></div>';
 }
 
 // ── AUTO-UPDATE OVERDUE TASK STATUS ────────────────────────────────────
@@ -889,8 +929,15 @@ async function openDetail(projectId){
   const pctColor=pct>=100?'#5DADE2':pct>=60?'var(--gold-light)':'#EC7063';
   const resultBox=p.planned_result?'<div class="result-box" style="margin-bottom:20px"><div class="result-box-label">🎯 Resultado Mensurável</div><div class="result-box-title">'+esc(p.planned_result)+'</div><div class="result-compare"><div class="result-col"><div class="result-col-label">Previsto</div><div class="result-col-value" style="font-size:24px">'+fmtNum(p.result_target,p.result_unit)+'</div></div><div class="result-col"><div class="result-col-label">Realizado</div><div class="result-col-value achieved" style="font-size:24px">'+fmtNum(p.result_achieved,p.result_unit)+'</div></div><div class="result-col"><div class="result-col-label">Atingimento</div><div style="font-size:24px;font-weight:700;color:'+pctColor+'">'+pct+'%</div></div></div><div class="result-progress" style="height:6px;margin-top:13px"><div class="result-progress-bar '+barClass+'" style="width:'+Math.min(pct,100)+'%"></div></div></div>':'';
 
+  const areaBg2 = areaBgColors[p.area]||'#F5EEF8';
+  const areaFg2 = areaFgColors[p.area]||'#7D3C98';
   document.getElementById('detailBody').innerHTML=
-    '<div class="meta-info"><span class="project-area-badge area-'+p.area+'">'+areaIcons[p.area]+' '+areaLabels[p.area]+'</span><span class="status-badge status-'+p.status+'">'+statusLabels[p.status]+'</span><span class="meta-chip">📅 '+fmtDate(p.start_date)+' → '+fmtDate(p.end_date)+'</span><span class="meta-chip">👤 '+esc(p.responsible||'-')+'</span></div>'
+    '<div class="meta-info">'
+    +'<span class="project-area-badge" style="background:'+areaBg2+';color:'+areaFg2+'">'+(areaIcons[p.area]||'📁')+' '+(areaLabels[p.area]||p.area)+'</span>'
+    +'<span class="status-badge status-'+p.status+'">'+statusLabels[p.status]+'</span>'
+    +'<span class="meta-chip">📅 '+fmtDate(p.start_date)+' → '+fmtDate(p.end_date)+'</span>'
+    +'<span class="meta-chip">👤 '+esc(p.responsible||'-')+'</span>'
+    +'</div>'
     +resultBox
     +'<div class="detail-section"><h4>Escopo</h4><p style="font-size:13px;line-height:1.7;color:var(--text-mid)">'+esc(p.scope||'Não informado.')+'</p></div>'
     +'<div class="detail-tabs"><button class="detail-tab active" id="tab-lista" onclick="switchTab(\'lista\')">📋 Lista</button><button class="detail-tab" id="tab-tabela" onclick="switchTab(\'tabela\')">📊 Tabela</button><button class="detail-tab" id="tab-kanban" onclick="switchTab(\'kanban\')">🗂️ Kanban</button><button class="detail-tab" id="tab-gantt" onclick="switchTab(\'gantt\')">📅 Gantt</button></div>'
@@ -1417,8 +1464,10 @@ function openProjectModal(){
   editingProject=null;
   document.getElementById('modalTitle').textContent='Novo Projeto';
   ['pName','pScope','pResponsible','pResultDesc','pResultUnit','pResultTarget','pResultAchieved'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('pArea').value=currentView!=='dashboard'?currentView:'qualidade';
-  document.getElementById('pYear').value=currentYear;   // seeds with the currently selected year (real current year)
+  renderAreaSelects(); // populate with current dynamic areas
+  const defaultArea = currentView !== 'dashboard' && currentView !== 'mytasks' && areaLabels[currentView] ? currentView : areasOrder[0] || 'qualidade';
+  document.getElementById('pArea').value = defaultArea;
+  document.getElementById('pYear').value=currentYear;
   document.getElementById('pStatus').value='em_andamento';
   document.getElementById('pStart').value='';document.getElementById('pEnd').value='';
   openModal('projectModal');
@@ -1427,7 +1476,9 @@ async function editProject(id){
   const{data:p}=await sb.from('projects').select('*').eq('id',id).single();
   editingProject=p;
   document.getElementById('modalTitle').textContent='Editar Projeto';
-  document.getElementById('pName').value=p.name||'';document.getElementById('pArea').value=p.area||'qualidade';
+  document.getElementById('pName').value=p.name||'';
+  renderAreaSelects();
+  document.getElementById('pArea').value=p.area||areasOrder[0]||'qualidade';
   document.getElementById('pYear').value=p.year||currentYear;document.getElementById('pResponsible').value=p.responsible||'';
   document.getElementById('pStatus').value=p.status||'em_andamento';document.getElementById('pStart').value=p.start_date||'';
   document.getElementById('pEnd').value=p.end_date||'';document.getElementById('pScope').value=p.scope||'';
@@ -1671,6 +1722,364 @@ async function deleteTask(taskId){
   await sb.from('tasks').update({depends_on:null}).eq('depends_on',taskId);
   await sb.from('tasks').delete().eq('id',taskId);
   await openDetail(currentProjectId);
+}
+
+// ── DUPLICATE PROJECT ──────────────────────────────────────────────────
+async function duplicateProject(projectId){
+  const btn = event.target;
+  btn.textContent = '⏳';
+  btn.disabled = true;
+
+  try {
+    // Fetch original project and its tasks
+    const [{ data: orig }, { data: tasks }] = await Promise.all([
+      sb.from('projects').select('*').eq('id', projectId).single(),
+      sb.from('tasks').select('*').eq('project_id', projectId).order('sort_order').order('created_at')
+    ]);
+
+    // Create new project — copy everything, reset result_achieved and status
+    const { id: _oid, created_at: _oc, updated_at: _ou, ...projFields } = orig;
+    const newProj = {
+      ...projFields,
+      name: orig.name + ' (Cópia)',
+      status: 'em_andamento',
+      result_achieved: null,
+    };
+
+    const { data: created, error: projErr } = await sb.from('projects').insert(newProj).select().single();
+    if(projErr || !created) throw projErr || new Error('Falha ao criar projeto');
+
+    // Duplicate tasks — rebuild depends_on mapping with new IDs
+    const oldToNew = {}; // old task id → new task id
+    const tasksToInsert = (tasks||[]).map(t => {
+      const { id: _tid, created_at: _tc, updated_at: _tu, project_id: _tp, depends_on: _dep, ...taskFields } = t;
+      return {
+        ...taskFields,
+        project_id: created.id,
+        status: 'pendente',        // reset all tasks to pending
+        _old_id: t.id,
+        _old_dep: t.depends_on,
+      };
+    });
+
+    // Insert tasks one by one to capture new IDs and rebuild dependency chain
+    for(const t of tasksToInsert){
+      const { _old_id, _old_dep, ...payload } = t;
+      const { data: newTask } = await sb.from('tasks').insert(payload).select('id').single();
+      if(newTask) oldToNew[_old_id] = newTask.id;
+    }
+
+    // Patch depends_on with new IDs
+    for(const t of tasksToInsert){
+      if(t._old_dep && oldToNew[t._old_dep] && oldToNew[t._old_id]){
+        await sb.from('tasks').update({ depends_on: oldToNew[t._old_dep] }).eq('id', oldToNew[t._old_id]);
+      }
+    }
+
+    await renderYears();
+    render();
+
+    // Brief success feedback
+    setTimeout(() => { btn.textContent = '✅'; setTimeout(() => { btn.textContent = '⧉ Duplicar'; btn.disabled = false; }, 1000); }, 200);
+  } catch(err){
+    console.error('Erro ao duplicar:', err);
+    alert('Erro ao duplicar o projeto.');
+    btn.textContent = '⧉ Duplicar';
+    btn.disabled = false;
+  }
+}
+
+// ── PER-PROJECT PDF REPORT ─────────────────────────────────────────────
+async function generateProjectReport(){
+  const btn = document.getElementById('btnProjectReport');
+  if(!btn || !currentProjectId) return;
+  const origHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.textContent = '⏳';
+
+  try {
+    const [{ data: p }, { data: tasks }] = await Promise.all([
+      sb.from('projects').select('*').eq('id', currentProjectId).single(),
+      sb.from('tasks').select('*').eq('project_id', currentProjectId).order('sort_order').order('created_at')
+    ]);
+    const taskList = tasks || [];
+    const taskMap  = {};
+    taskList.forEach(t => { taskMap[t.id] = t; });
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+    const PW=210, PH=297, ML=14, MR=14, MT=16, CW=PW-ML-MR;
+
+    // ── Color palette ─────────────────────────────────────────────────
+    const BORDO   = [75,15,28];
+    const BORDO_L = [139,42,62];
+    const GOLD    = [201,168,76];
+    const CREAM   = [245,239,230];
+    const WHITE   = [253,250,246];
+    const DARK    = [44,26,14];
+    const LIGHT   = [154,123,90];
+    const SUCCESS = [46,125,79];
+    const DANGER  = [192,57,43];
+    const WARNING = [198,124,26];
+    const INFO    = [37,99,235];
+
+    const aLbl = { qualidade:'Qualidade', produtos:'Produtos', comercial:'Comercial', marketing:'Marketing', operacoes:'Operações' };
+    function fD(s){ return s ? new Date(s+'T00:00:00').toLocaleDateString('pt-BR') : '—'; }
+    function fN(v,u){ if(v==null)return'—'; if(u==='R$')return'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:0}); if(u==='%')return Number(v).toLocaleString('pt-BR')+'%'; return Number(v).toLocaleString('pt-BR')+(u?' '+u:''); }
+    function sLbl(s){ return {em_andamento:'Em Andamento',concluido:'Concluído',atrasado:'Atrasado',cancelado:'Cancelado'}[s]||s; }
+    function sColor(s){ return {atrasado:DANGER,atrasada:DANGER,concluido:SUCCESS,concluida:SUCCESS,em_andamento:INFO,pendente:LIGHT,cancelado:LIGHT}[s]||LIGHT; }
+    function tLbl(s){ return {pendente:'Pendente',em_andamento:'Em Andamento',concluida:'Concluída',atrasada:'Atrasada'}[s]||s; }
+    function pLbl(s){ return {alta:'Alta',media:'Média',baixa:'Baixa'}[s]||s; }
+
+    const today = new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'});
+    const pct   = p.result_target ? Math.min(Math.round((p.result_achieved||0)/p.result_target*100),999) : null;
+    const tc    = { total:taskList.length, concluida:taskList.filter(t=>t.status==='concluida').length, atrasada:taskList.filter(t=>t.status==='atrasada').length, em_andamento:taskList.filter(t=>t.status==='em_andamento').length, pendente:taskList.filter(t=>t.status==='pendente').length };
+    const progPct = tc.total ? Math.round(tc.concluida/tc.total*100) : 0;
+
+    let y = 0;
+
+    // ── HEADER BAND ───────────────────────────────────────────────────
+    doc.setFillColor(...BORDO);
+    doc.rect(0, 0, PW, 36, 'F');
+    doc.setFillColor(...GOLD);
+    doc.rect(0, 36, PW, 1.5, 'F');
+
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(9);
+    doc.setTextColor(...GOLD);
+    doc.text('LUNA GELATO & CAFFÈ  —  RELATÓRIO DE PROJETO', ML, 11);
+
+    doc.setFontSize(15);
+    doc.setTextColor(...WHITE);
+    const nameLines = doc.splitTextToSize(p.name, CW - 30);
+    doc.text(nameLines[0], ML, 23);
+
+    // Area badge (top right)
+    doc.setFillColor(...BORDO_L);
+    doc.roundedRect(PW-MR-36, 6, 34, 10, 2, 2, 'F');
+    doc.setFontSize(7);
+    doc.setTextColor(...GOLD);
+    doc.text((aLbl[p.area]||p.area).toUpperCase(), PW-MR-19, 12.5, {align:'center'});
+
+    // Status badge
+    const sc = sColor(p.status);
+    doc.setFillColor(...sc);
+    doc.roundedRect(PW-MR-36, 18, 34, 8, 2, 2, 'F');
+    doc.setFontSize(7);
+    doc.setTextColor(...WHITE);
+    doc.text(sLbl(p.status).toUpperCase(), PW-MR-19, 23.2, {align:'center'});
+
+    doc.setFontSize(7.5);
+    doc.setTextColor(180,160,140);
+    doc.text('Gerado em ' + today, ML, 31);
+
+    y = 46;
+
+    // ── INFO GRID ─────────────────────────────────────────────────────
+    // 4 info cells in a row
+    const cells = [
+      { label:'RESPONSÁVEL',     value: p.responsible || '—' },
+      { label:'DATA DE ABERTURA', value: fD(p.start_date) },
+      { label:'DATA DE ENTREGA',  value: fD(p.end_date) },
+      { label:'ANO',              value: String(p.year||'—') },
+    ];
+    const cw4 = (CW-6)/4;
+    cells.forEach((c,i) => {
+      const cx = ML + i*(cw4+2);
+      doc.setFillColor(...CREAM);
+      doc.roundedRect(cx, y, cw4, 14, 2, 2, 'F');
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(6.5);
+      doc.setTextColor(...LIGHT);
+      doc.text(c.label, cx+cw4/2, y+5, {align:'center'});
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(9);
+      doc.setTextColor(...DARK);
+      doc.text(doc.splitTextToSize(c.value, cw4-4)[0], cx+cw4/2, y+11, {align:'center'});
+    });
+    y += 19;
+
+    // ── SCOPE ─────────────────────────────────────────────────────────
+    if(p.scope){
+      doc.setFillColor(...WHITE);
+      doc.setDrawColor(...CREAM);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(ML, y, CW, 16, 2, 2, 'FD');
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(7);
+      doc.setTextColor(...LIGHT);
+      doc.text('ESCOPO', ML+4, y+5);
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(...DARK);
+      const scopeLines = doc.splitTextToSize(p.scope, CW-8);
+      doc.text(scopeLines.slice(0,2).join(' '), ML+4, y+11);
+      y += 21;
+    }
+
+    // ── RESULTADO MENSURÁVEL ─────────────────────────────────────────
+    if(p.planned_result){
+      doc.setFillColor(...BORDO);
+      doc.roundedRect(ML, y, CW, 26, 3, 3, 'F');
+
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(6.5);
+      doc.setTextColor(...GOLD);
+      doc.text('🎯  RESULTADO MENSURÁVEL', ML+5, y+6);
+
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(8);
+      doc.setTextColor(220,200,180);
+      doc.text(doc.splitTextToSize(p.planned_result, CW-10)[0], ML+5, y+11);
+
+      // Previsto / Realizado / Atingimento
+      const cols3 = [[ML+5,'PREVISTO',fN(p.result_target,p.result_unit)], [ML+CW/3+5,'REALIZADO',fN(p.result_achieved,p.result_unit)], [ML+2*CW/3+5,'ATINGIMENTO',pct!==null?pct+'%':'—']];
+      cols3.forEach(([cx,lbl,val],i) => {
+        doc.setFont('helvetica','bold');
+        doc.setFontSize(6);
+        doc.setTextColor(...GOLD);
+        doc.text(lbl, cx, y+17);
+        doc.setFontSize(11);
+        const vc = i===2 ? (pct===null?WHITE : pct>=100?[93,173,226]:pct>=60?[232,201,122]:[236,96,99]) : WHITE;
+        doc.setTextColor(...vc);
+        doc.text(val, cx, y+23);
+      });
+
+      // Progress bar
+      const barY = y+24.5;
+      doc.setFillColor(255,255,255,0.2);
+      doc.roundedRect(ML+5, barY, CW-10, 2, 1, 1, 'F');
+      if(pct){
+        const barW = Math.min(pct,100)/100*(CW-10);
+        const bc = pct>=100?[93,173,226]:pct>=60?[232,201,122]:[236,96,99];
+        doc.setFillColor(...bc);
+        doc.roundedRect(ML+5, barY, barW, 2, 1, 1, 'F');
+      }
+      y += 31;
+    }
+
+    // ── TASK SUMMARY CHIPS ────────────────────────────────────────────
+    y += 3;
+    const chips = [
+      { label:'Total', val:tc.total, bg:CREAM, fg:DARK },
+      { label:'Concluídas', val:tc.concluida, bg:SUCCESS, fg:WHITE },
+      { label:'Em Andamento', val:tc.em_andamento, bg:INFO, fg:WHITE },
+      { label:'Atrasadas', val:tc.atrasada, bg:DANGER, fg:WHITE },
+      { label:'Pendentes', val:tc.pendente, bg:[220,210,200], fg:DARK },
+    ];
+    const chipW=(CW-12)/5;
+    chips.forEach((c,i) => {
+      const cx=ML+i*(chipW+3);
+      doc.setFillColor(...c.bg);
+      doc.roundedRect(cx, y, chipW, 12, 2, 2, 'F');
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(10);
+      doc.setTextColor(...c.fg);
+      doc.text(String(c.val), cx+chipW/2, y+7, {align:'center'});
+      doc.setFontSize(6);
+      doc.text(c.label, cx+chipW/2, y+11, {align:'center'});
+    });
+
+    // Progress bar for tasks
+    y += 17;
+    doc.setFillColor(...CREAM);
+    doc.roundedRect(ML, y, CW, 5, 2, 2, 'F');
+    if(progPct > 0){
+      doc.setFillColor(...SUCCESS);
+      doc.roundedRect(ML, y, CW*progPct/100, 5, 2, 2, 'F');
+    }
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(7);
+    doc.setTextColor(...DARK);
+    doc.text(progPct + '% das tarefas concluídas', ML, y+9);
+    y += 13;
+
+    // ── TASK TABLE ────────────────────────────────────────────────────
+    doc.setFillColor(...BORDO);
+    doc.rect(ML, y, CW, 8, 'F');
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(9);
+    doc.setTextColor(...WHITE);
+    doc.text('LISTA DE TAREFAS', ML+4, y+5.5);
+    y += 11;
+
+    if(taskList.length === 0){
+      doc.setFont('helvetica','italic');
+      doc.setFontSize(9);
+      doc.setTextColor(...LIGHT);
+      doc.text('Nenhuma tarefa cadastrada.', ML, y+6);
+    } else {
+      const tableHead = [['Tarefa','Responsável','Início','Término','Status','Prior.','Dep.']];
+      const tableRows = taskList.map(t => {
+        const dep = t.depends_on && taskMap[t.depends_on];
+        return [
+          t.title,
+          t.responsible || '—',
+          fD(t.start_date),
+          fD(t.due_date),
+          tLbl(t.status),
+          pLbl(t.priority||'media'),
+          dep ? dep.title : '—',
+        ];
+      });
+
+      doc.autoTable({
+        startY: y,
+        head: tableHead,
+        body: tableRows,
+        theme: 'grid',
+        styles: {
+          font:'helvetica', fontSize:7.5,
+          cellPadding:{top:3,right:3,bottom:3,left:3},
+          textColor:DARK, lineColor:[220,210,200], lineWidth:0.25,
+          overflow:'ellipsize',
+        },
+        headStyles: { fillColor:BORDO_L, textColor:WHITE, fontStyle:'bold', fontSize:7.5 },
+        alternateRowStyles: { fillColor:CREAM },
+        columnStyles: {
+          0:{ cellWidth:46, fontStyle:'bold' },
+          1:{ cellWidth:28 },
+          2:{ cellWidth:18, halign:'center' },
+          3:{ cellWidth:18, halign:'center' },
+          4:{ cellWidth:22, halign:'center', fontStyle:'bold' },
+          5:{ cellWidth:14, halign:'center' },
+          6:{ cellWidth:36 },
+        },
+        didParseCell: function(data){
+          if(data.section==='body' && data.column.index===4){
+            const s = taskList[data.row.index]?.status;
+            if(s) data.cell.styles.textColor = sColor(s);
+          }
+        },
+        margin:{ left:ML, right:MR },
+      });
+    }
+
+    // ── FOOTER ────────────────────────────────────────────────────────
+    const totalPages = doc.internal.getNumberOfPages();
+    for(let i=1;i<=totalPages;i++){
+      doc.setPage(i);
+      doc.setFillColor(...BORDO);
+      doc.rect(0, PH-10, PW, 10, 'F');
+      doc.setFillColor(...GOLD);
+      doc.rect(0, PH-10, PW, 0.8, 'F');
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(7);
+      doc.setTextColor(200,185,170);
+      doc.text('Luna Gelato & Caffè — ' + p.name + ' — ' + today, ML, PH-3.5);
+      doc.text('Página '+i+' de '+totalPages, PW-MR, PH-3.5, {align:'right'});
+    }
+
+    const filename = 'projeto-' + p.name.toLowerCase().replace(/[^a-z0-9]+/g,'-').slice(0,40) + '.pdf';
+    doc.save(filename);
+
+  } catch(err){
+    console.error('Erro ao gerar PDF do projeto:', err);
+    alert('Erro ao gerar o PDF do projeto.');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = origHtml;
+  }
 }
 
 // ── PDF REPORT ──────────────────────────────────────────────────────────
@@ -2073,24 +2482,216 @@ function navigate(view){
   currentView=view;activeStatusFilter='todos';dateFrom='';dateTo='';
   document.querySelectorAll('.sidebar-item').forEach(el=>el.classList.toggle('active',el.dataset.view===view));
   document.querySelectorAll('.mobile-nav-item[data-view]').forEach(el=>el.classList.toggle('active',el.dataset.view===view));
-  const titles={
+  // Title: fixed views first, then dynamic areas
+  const fixedTitles={
     dashboard:['Painel Geral','Visão consolidada de todos os projetos'],
-    qualidade:['Qualidade','Projetos da área de qualidade'],
-    produtos:['Produtos','Projetos da área de produtos'],
-    comercial:['Comercial','Projetos da área comercial'],
-    marketing:['Marketing','Projetos de marketing'],
-    operacoes:['Operações','Projetos operacionais'],
     mytasks:['Minhas Tarefas','Busque tudo que foi atribuído a um colaborador'],
   };
-  const[title,sub]=titles[view]||['Projetos',''];
+  let title, sub;
+  if(fixedTitles[view]){
+    [title,sub]=fixedTitles[view];
+  } else {
+    title = (areaIcons[view]||'📁')+' '+(areaLabels[view]||view);
+    sub   = 'Projetos da área de '+(areaLabels[view]||view).toLowerCase();
+  }
   document.getElementById('pageTitle').textContent=title;
   document.getElementById('pageSubtitle').textContent=sub;
   closeSidebar();
   render();
 }
 
+// ── AREAS — dynamic data ───────────────────────────────────────────────
+// Runtime store — populated from Supabase on startup and after saves
+let areaLabels = {};
+let areaIcons  = {};
+let areaBgColors   = {};
+let areaFgColors   = {};
+let areasOrder = []; // ordered array of area id strings
+
+async function loadAreas(){
+  const { data } = await sb.from('areas').select('*').order('sort_order').order('label');
+  const rows = data && data.length > 0 ? data : [
+    { id:'qualidade', label:'Qualidade',  icon:'✅', color_bg:'#F5EEF8', color_text:'#7D3C98', sort_order:1 },
+    { id:'produtos',  label:'Produtos',   icon:'📦', color_bg:'#EBF5FB', color_text:'#1A5276', sort_order:2 },
+    { id:'comercial', label:'Comercial',  icon:'💼', color_bg:'#E8F8F0', color_text:'#1E8449', sort_order:3 },
+    { id:'marketing', label:'Marketing',  icon:'📣', color_bg:'#FEF9E7', color_text:'#B7950B', sort_order:4 },
+    { id:'operacoes', label:'Operações',  icon:'⚙️', color_bg:'#FDEDEC', color_text:'#922B21', sort_order:5 },
+  ];
+  areaLabels   = {};
+  areaIcons    = {};
+  areaBgColors = {};
+  areaFgColors = {};
+  areasOrder   = [];
+  rows.forEach(r => {
+    areaLabels[r.id]   = r.label;
+    areaIcons[r.id]    = r.icon;
+    areaBgColors[r.id] = r.color_bg;
+    areaFgColors[r.id] = r.color_text;
+    areasOrder.push(r.id);
+  });
+}
+
+function renderSidebarAreas(){
+  const container = document.getElementById('sidebarAreas');
+  if(!container) return;
+  container.innerHTML = areasOrder.map(id =>
+    '<a class="sidebar-item" data-view="'+id+'" onclick="navigate(\''+id+'\')">'
+    +'<span class="icon">'+areaIcons[id]+'</span> '+esc(areaLabels[id])
+    +'</a>'
+  ).join('');
+}
+
+function renderMobileNavAreas(){
+  const container = document.getElementById('mobileNavAreas');
+  if(!container) return;
+  // Show up to 2 areas in mobile nav (rest accessible via sidebar)
+  container.innerHTML = areasOrder.slice(0,2).map(id =>
+    '<button class="mobile-nav-item" data-view="'+id+'" onclick="navigateMobile(\''+id+'\',this)">'
+    +'<span class="mnav-icon">'+areaIcons[id]+'</span>'
+    +esc(areaLabels[id]).slice(0,8)
+    +'</button>'
+  ).join('');
+}
+
+function renderAreaSelects(){
+  // Populate all <select id="pArea"> dropdowns with current areas
+  const opts = areasOrder.map(id =>
+    '<option value="'+id+'">'+areaIcons[id]+' '+esc(areaLabels[id])+'</option>'
+  ).join('');
+  document.querySelectorAll('#pArea').forEach(sel => {
+    const cur = sel.value;
+    sel.innerHTML = opts;
+    if(cur && areaLabels[cur]) sel.value = cur;
+  });
+}
+
+// Call after any area change
+async function refreshAreasEverywhere(){
+  await loadAreas();
+  renderSidebarAreas();
+  renderMobileNavAreas();
+  renderAreaSelects();
+  // Re-apply active state
+  document.querySelectorAll('.sidebar-item').forEach(el =>
+    el.classList.toggle('active', el.dataset.view === currentView)
+  );
+}
+
+// ── AREAS MODAL ────────────────────────────────────────────────────────
+async function openAreasModal(){
+  await loadAreas();
+  renderAreasListUI();
+  openModal('areasModal');
+}
+
+function renderAreasListUI(){
+  const container = document.getElementById('areasListUI');
+  if(!container) return;
+  container.innerHTML = areasOrder.map((id, idx) => {
+    const bg = areaBgColors[id]||'#eee';
+    const fg = areaFgColors[id]||'#333';
+    return '<div class="area-list-row" id="arow-'+id+'">'
+      +'<div class="area-icon-preview" id="prev-'+id+'" style="background:'+bg+';color:'+fg+'">'+areaIcons[id]+'</div>'
+      +'<input type="text" id="albl-'+id+'" value="'+esc(areaLabels[id])+'" placeholder="Nome da área" oninput="updateAreaPreview(\''+id+'\')" />'
+      +'<input type="text" class="area-icon-input" id="aico-'+id+'" value="'+areaIcons[id]+'" placeholder="📁" maxlength="4" oninput="updateAreaPreview(\''+id+'\')" />'
+      +'<input type="color" id="abg-'+id+'" value="'+bg+'" oninput="updateAreaPreview(\''+id+'\')" />'
+      +'<input type="color" id="afg-'+id+'" value="'+fg+'" oninput="updateAreaPreview(\''+id+'\')" />'
+      +'<button class="btn-area-del" onclick="deleteArea(\''+id+'\')" title="Remover área">×</button>'
+      +'</div>';
+  }).join('');
+
+  // Column headers
+  const header = '<div style="display:grid;grid-template-columns:40px 1fr 56px 100px 100px 34px;gap:8px;margin-bottom:8px">'
+    +'<div></div>'
+    +'<div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text-light)">Nome</div>'
+    +'<div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text-light);text-align:center">Ícone</div>'
+    +'<div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text-light);text-align:center">Cor fundo</div>'
+    +'<div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text-light);text-align:center">Cor texto</div>'
+    +'<div></div></div>';
+
+  container.innerHTML = header
+    + '<div id="areasRows">'+container.innerHTML+'</div>'
+    + '<button class="btn-primary" onclick="saveAllAreas()" style="margin-top:14px;width:100%">💾 Salvar alterações</button>';
+}
+
+function updateAreaPreview(id){
+  const ico = document.getElementById('aico-'+id)?.value || '📁';
+  const bg  = document.getElementById('abg-'+id)?.value  || '#eee';
+  const fg  = document.getElementById('afg-'+id)?.value  || '#333';
+  const prev = document.getElementById('prev-'+id);
+  if(prev){ prev.style.background=bg; prev.style.color=fg; prev.textContent=ico; }
+}
+
+async function saveAllAreas(){
+  const btn = document.querySelector('#areasListUI .btn-primary');
+  if(btn){ btn.textContent='⏳ Salvando...'; btn.disabled=true; }
+  try {
+    for(let i=0; i<areasOrder.length; i++){
+      const id = areasOrder[i];
+      const label = document.getElementById('albl-'+id)?.value.trim();
+      const icon  = document.getElementById('aico-'+id)?.value.trim() || '📁';
+      const bg    = document.getElementById('abg-'+id)?.value || '#eee';
+      const fg    = document.getElementById('afg-'+id)?.value || '#333';
+      if(!label) continue;
+      await sb.from('areas').upsert({ id, label, icon, color_bg:bg, color_text:fg, sort_order:i+1 });
+    }
+    await refreshAreasEverywhere();
+    renderAreasListUI();
+    if(btn){ btn.textContent='✅ Salvo!'; setTimeout(()=>{ btn.textContent='💾 Salvar alterações'; btn.disabled=false; },1500); }
+  } catch(err){
+    console.error(err);
+    if(btn){ btn.textContent='💾 Salvar alterações'; btn.disabled=false; }
+    alert('Erro ao salvar áreas.');
+  }
+}
+
+async function addArea(){
+  const label = document.getElementById('newAreaLabel').value.trim();
+  const icon  = document.getElementById('newAreaIcon').value.trim() || '📁';
+  const bg    = document.getElementById('newAreaBg').value   || '#EBF5FB';
+  const fg    = document.getElementById('newAreaFg').value   || '#1A5276';
+  if(!label){ alert('Informe o nome da nova área.'); return; }
+
+  // Generate a slug from the label
+  const id = label.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,40)
+    + '_' + Date.now().toString(36);
+
+  const sort = areasOrder.length + 1;
+  await sb.from('areas').insert({ id, label, icon, color_bg:bg, color_text:fg, sort_order:sort });
+
+  document.getElementById('newAreaLabel').value='';
+  document.getElementById('newAreaIcon').value='';
+
+  await refreshAreasEverywhere();
+  renderAreasListUI();
+}
+
+async function deleteArea(id){
+  // Check if any projects use this area
+  const { data: projs } = await sb.from('projects').select('id').eq('area', id).limit(1);
+  if(projs && projs.length > 0){
+    alert('Esta área possui projetos vinculados e não pode ser removida.\nReatribua ou exclua os projetos antes de remover a área.');
+    return;
+  }
+  if(!confirm('Remover a área "' + (areaLabels[id]||id) + '"? Esta ação não pode ser desfeita.')){ return; }
+  await sb.from('areas').delete().eq('id', id);
+  await refreshAreasEverywhere();
+  renderAreasListUI();
+  // If currently viewing this area, go to dashboard
+  if(currentView === id) navigate('dashboard');
+}
+
 // ── INIT ───────────────────────────────────────────────────────────────
-(async()=>{await renderYears();render();})();
+(async()=>{
+  await loadAreas();
+  renderSidebarAreas();
+  renderMobileNavAreas();
+  renderAreaSelects();
+  await renderYears();
+  render();
+})();
 </script>
 </body>
 </html>
