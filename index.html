@@ -195,6 +195,13 @@
     .btn-sm{padding:5px 12px;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer;border:none;font-family:'DM Sans',sans-serif;transition:all .2s}
     .btn-sm-primary{background:var(--bordo);color:#fff}.btn-sm-primary:hover{background:var(--bordo-light)}
     .task-card-detail{background:var(--cream);border-radius:10px;padding:11px 14px;margin-bottom:7px;display:flex;gap:9px;align-items:flex-start}
+    /* Drag & drop */
+    .task-card-detail[draggable=true]{cursor:grab;user-select:none}
+    .task-card-detail[draggable=true]:active{cursor:grabbing}
+    .task-card-detail.drag-over{border:2px dashed var(--bordo);background:rgba(107,26,42,.06);transform:scale(1.01)}
+    .task-card-detail.dragging{opacity:.35;transform:scale(.98)}
+    .drag-handle{color:rgba(154,123,90,.5);cursor:grab;font-size:14px;flex-shrink:0;margin-top:2px;transition:color .15s;padding:0 2px;line-height:1}
+    .drag-handle:hover{color:var(--bordo)}
     .task-info{flex:1}
     .task-title-detail{font-size:13px;font-weight:600;color:var(--text-dark)}
     .task-meta{font-size:11px;color:var(--text-light);margin-top:2px}
@@ -1044,11 +1051,12 @@ async function openDetail(projectId){
     +'</div>'
     +resultBox
     +'<div class="detail-section"><h4>Escopo</h4><p style="font-size:13px;line-height:1.7;color:var(--text-mid)">'+esc(p.scope||'Não informado.')+'</p></div>'
-    +'<div class="detail-tabs"><button class="detail-tab active" id="tab-lista" onclick="switchTab(\'lista\')">📋 Lista</button><button class="detail-tab" id="tab-tabela" onclick="switchTab(\'tabela\')">📊 Tabela</button><button class="detail-tab" id="tab-kanban" onclick="switchTab(\'kanban\')">🗂️ Kanban</button><button class="detail-tab" id="tab-gantt" onclick="switchTab(\'gantt\')">📅 Gantt</button></div>'
+    +'<div class="detail-tabs"><button class="detail-tab active" id="tab-lista" onclick="switchTab(\'lista\')">📋 Lista</button><button class="detail-tab" id="tab-tabela" onclick="switchTab(\'tabela\')">📊 Tabela</button><button class="detail-tab" id="tab-kanban" onclick="switchTab(\'kanban\')">🗂️ Kanban</button><button class="detail-tab" id="tab-gantt" onclick="switchTab(\'gantt\')">📅 Gantt</button><button class="detail-tab" id="tab-checklist" onclick="switchTab(\'checklist\')">☑️ Checklists</button></div>'
     +'<div id="tab-panel-lista" class="tab-panel active">'+buildTaskList(tasks)+'</div>'
     +'<div id="tab-panel-tabela" class="tab-panel"></div>'
     +'<div id="tab-panel-kanban" class="tab-panel"></div>'
-    +'<div id="tab-panel-gantt" class="tab-panel"></div>';
+    +'<div id="tab-panel-gantt" class="tab-panel"></div>'
+    +'<div id="tab-panel-checklist" class="tab-panel"></div>';
 
   // Store tasks for tab switching
   window._currentTasks=tasks;
@@ -1063,6 +1071,7 @@ function switchTab(tab){
   if(tab==='tabela')renderTaskTable(window._currentTasks);
   if(tab==='kanban')renderKanban(window._currentTasks);
   if(tab==='gantt')renderGantt(window._currentTasks,window._currentProject);
+  if(tab==='checklist')renderProjectChecklists(currentProjectId);
 }
 
 // ── TASK TABLE VIEW ────────────────────────────────────────────────────
@@ -1242,7 +1251,7 @@ async function toggleCLItem(itemId, checked, listId){
     if(txt){ txt.style.textDecoration=checked?'line-through':''; txt.style.color=checked?'var(--text-light)':''; }
   }
   await sb.from('checklist_items').update({checked}).eq('id',itemId);
-  // Refresh just the card header/progress without full re-render
+  // Refresh progress in whichever context we're in
   await refreshCLCardProgress(listId);
 }
 
@@ -1255,18 +1264,17 @@ async function refreshCLCardProgress(listId){
   const pct     = total ? Math.round(checked/total*100) : 0;
   const done    = total>0&&checked===total;
 
-  const card = document.getElementById('clcard-'+listId);
+  // Works for both clcard-{id} (standalone page) and projcls-{id} (project detail)
+  const card = document.getElementById('clcard-'+listId) || document.getElementById('projcls-'+listId);
   if(!card) return;
-  // Update title emoji
+
   const titleEl = card.querySelector('[style*="Playfair"]');
   if(titleEl){
     const bare = titleEl.textContent.replace(/^✅ /,'');
     titleEl.textContent = done ? '✅ '+bare : bare;
   }
-  // Update progress bar
   const fill = card.querySelector('[style*="transition:width"]');
   if(fill) fill.style.width = pct+'%';
-  // Update counter
   const counter = card.querySelector('[style*="white-space:nowrap"]');
   if(counter) counter.textContent = checked+'/'+total+' ('+pct+'%)';
 }
@@ -1306,7 +1314,9 @@ async function clearCLChecked(listId){
   if(!items||!items.length){ alert('Nenhum item marcado para remover.'); return; }
   if(!confirm('Remover os '+items.length+' item(ns) marcados?')) return;
   await sb.from('checklist_items').delete().eq('checklist_id',listId).eq('checked',true);
-  await renderChecklistsPage();
+  // Refresh whichever view is active
+  if(currentView==='checklists') await renderChecklistsPage();
+  // If called from project detail, the caller handles re-render via .then()
 }
 
 // ── PDF generation for a single checklist ─────────────────────────────
@@ -1599,27 +1609,235 @@ function shiftDate(dateStr,days){
   const d=new Date(dateStr+'T00:00:00');d.setDate(d.getDate()+days);return d.toISOString().slice(0,10);
 }
 
-// ── TASK LIST ──────────────────────────────────────────────────────────
+// ── TASK LIST (with drag & drop reorder) ──────────────────────────────
 function buildTaskList(tasks){
   const taskMap={};(tasks||[]).forEach(t=>{taskMap[t.id]=t;});
-  const taskListHTML=(tasks||[]).map(t=>{
+
+  const taskListHTML=(tasks||[]).map((t,idx)=>{
     const d=daysUntil(t.due_date);
     let chip='';
-    if(t.status!=='concluida'&&t.due_date){if(d<0)chip='<span style="background:#FDEDEC;color:var(--danger);padding:2px 7px;border-radius:7px;font-size:9.5px;font-weight:700">'+Math.abs(d)+'d atraso</span>';else if(d<=7)chip='<span style="background:#FEF3E2;color:var(--warning);padding:2px 7px;border-radius:7px;font-size:9.5px;font-weight:700">'+(d===0?'Hoje!':d===1?'Amanhã':'Em '+d+'d')+'</span>';}
+    if(t.status!=='concluida'&&t.due_date){
+      if(d<0)chip='<span style="background:#FDEDEC;color:var(--danger);padding:2px 7px;border-radius:7px;font-size:9.5px;font-weight:700">'+Math.abs(d)+'d atraso</span>';
+      else if(d<=7)chip='<span style="background:#FEF3E2;color:var(--warning);padding:2px 7px;border-radius:7px;font-size:9.5px;font-weight:700">'+(d===0?'Hoje!':d===1?'Amanhã':'Em '+d+'d')+'</span>';
+    }
     const dotColor=t.status==='concluida'?'#2E7D4F':t.status==='atrasada'?'#C0392B':t.status==='em_andamento'?'#2563EB':'#C4A882';
     const depName=t.depends_on&&taskMap[t.depends_on]?taskMap[t.depends_on].title:'';
     const depHTML=depName?'<span class="dep-badge">⛓️ Após: '+esc(depName)+'</span>':'';
     const startHTML=t.start_date?'📅 Início: '+fmtDate(t.start_date)+' · ':'';
-    return '<div class="task-card-detail">'
+
+    return '<div class="task-card-detail" draggable="true" data-task-id="'+t.id+'" data-idx="'+idx+'"'
+      +' ondragstart="onTaskDragStart(event,\''+t.id+'\')"'
+      +' ondragover="onTaskDragOver(event)"'
+      +' ondragleave="onTaskDragLeave(event)"'
+      +' ondrop="onTaskDrop(event,\''+t.id+'\')"'
+      +' ondragend="onTaskDragEnd(event)">'
+      +'<span class="drag-handle" title="Arrastar para reordenar">⠿</span>'
       +'<div style="width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px;background:'+dotColor+'"></div>'
       +'<div class="task-info"><div class="task-title-detail">'+esc(t.title)+' '+chip+'</div>'
       +'<div class="task-meta">👤 '+esc(t.responsible||'-')+' · '+startHTML+'🏁 '+fmtDate(t.due_date)+' · '+taskStatusLabels[t.status]+'</div>'
       +(depHTML?'<div>'+depHTML+'</div>':'')
       +'</div>'
-      +'<div class="task-actions"><button class="btn-icon" onclick="editTask(\''+t.id+'\')">✏️</button><button class="btn-icon danger" onclick="deleteTask(\''+t.id+'\')">🗑️</button></div></div>';
+      +'<div class="task-actions"><button class="btn-icon" onclick="editTask(\''+t.id+'\')">✏️</button><button class="btn-icon danger" onclick="deleteTask(\''+t.id+'\')">🗑️</button></div>'
+      +'</div>';
   }).join('')||'<div style="color:var(--text-light);font-size:13px;padding:10px 0">Nenhuma tarefa cadastrada.</div>';
 
-  return '<div class="tasks-section"><div class="tasks-header"><h4>Tarefas ('+( tasks||[]).length+')</h4><button class="btn-sm btn-sm-primary" onclick="openTaskModal()">+ Tarefa</button></div>'+taskListHTML+'</div>';
+  return '<div class="tasks-section">'
+    +'<div class="tasks-header"><h4>Tarefas ('+(tasks||[]).length+')</h4><button class="btn-sm btn-sm-primary" onclick="openTaskModal()">+ Tarefa</button></div>'
+    +'<div id="taskDragList">'+taskListHTML+'</div>'
+    +'</div>';
+}
+
+// ── DRAG & DROP — task reorder ──────────────────────────────────────────
+let _dragTaskId = null;
+
+function onTaskDragStart(e, taskId){
+  _dragTaskId = taskId;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', taskId);
+  setTimeout(()=>{ const el=e.target.closest('.task-card-detail'); if(el)el.classList.add('dragging'); }, 0);
+}
+
+function onTaskDragOver(e){
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const card = e.target.closest('.task-card-detail');
+  if(card && card.dataset.taskId !== _dragTaskId){
+    // Remove drag-over from all others first
+    document.querySelectorAll('.task-card-detail.drag-over').forEach(el=>el.classList.remove('drag-over'));
+    card.classList.add('drag-over');
+  }
+}
+
+function onTaskDragLeave(e){
+  const card = e.target.closest('.task-card-detail');
+  if(card) card.classList.remove('drag-over');
+}
+
+function onTaskDragEnd(e){
+  document.querySelectorAll('.task-card-detail').forEach(el=>{
+    el.classList.remove('dragging','drag-over');
+  });
+  _dragTaskId = null;
+}
+
+async function onTaskDrop(e, targetTaskId){
+  e.preventDefault();
+  const draggedId = e.dataTransfer.getData('text/plain') || _dragTaskId;
+  if(!draggedId || draggedId === targetTaskId){ onTaskDragEnd(e); return; }
+
+  // Get current order from DOM
+  const list = document.getElementById('taskDragList');
+  if(!list){ onTaskDragEnd(e); return; }
+
+  const cards = [...list.querySelectorAll('.task-card-detail[data-task-id]')];
+  const ids = cards.map(c => c.dataset.taskId);
+
+  const fromIdx = ids.indexOf(draggedId);
+  const toIdx   = ids.indexOf(targetTaskId);
+  if(fromIdx === -1 || toIdx === -1){ onTaskDragEnd(e); return; }
+
+  // Reorder array
+  ids.splice(fromIdx, 1);
+  ids.splice(toIdx, 0, draggedId);
+
+  // Optimistic DOM reorder — move the dragged card
+  const draggedCard = cards[fromIdx];
+  const targetCard  = cards[toIdx];
+  if(fromIdx < toIdx){
+    list.insertBefore(draggedCard, targetCard.nextSibling);
+  } else {
+    list.insertBefore(draggedCard, targetCard);
+  }
+
+  // Clean up visual states
+  document.querySelectorAll('.task-card-detail').forEach(el=>el.classList.remove('dragging','drag-over'));
+  _dragTaskId = null;
+
+  // Persist new sort_order to Supabase (batch)
+  const updates = ids.map((id, idx) =>
+    sb.from('tasks').update({ sort_order: idx }).eq('id', id)
+  );
+  await Promise.all(updates);
+
+  // Refresh _currentTasks order silently (no full re-render to avoid interruption)
+  if(window._currentTasks){
+    const taskMap = {};
+    window._currentTasks.forEach(t => { taskMap[t.id] = t; });
+    window._currentTasks = ids.map((id,idx) => ({ ...taskMap[id], sort_order: idx }));
+  }
+}
+
+// ── PROJECT CHECKLISTS TAB ─────────────────────────────────────────────
+async function renderProjectChecklists(projectId){
+  const panel = document.getElementById('tab-panel-checklist');
+  if(!panel) return;
+  panel.innerHTML = '<div class="loading"><div class="spinner"></div> Carregando checklists...</div>';
+
+  const { data: lists } = await sb
+    .from('checklists')
+    .select('*, checklist_items(*)')
+    .eq('project_id', projectId)
+    .order('sort_order').order('created_at');
+
+  const all = lists || [];
+
+  // New list quick-add form
+  const newForm = '<div class="cl-new-list" style="margin-bottom:20px">'
+    +'<div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text-light);margin-bottom:10px">+ Nova Lista para este Projeto</div>'
+    +'<div class="cl-new-list-row">'
+    +'<input class="cl-new-list-input" id="projCLTitle" placeholder="Ex: Itens a entregar na Loja 1..." onkeydown="if(event.key===\'Enter\')saveProjCL(\''+projectId+'\')" />'
+    +'<button class="cl-add-btn" onclick="saveProjCL(\''+projectId+'\')">Criar lista</button>'
+    +'</div></div>';
+
+  if(!all.length){
+    panel.innerHTML = newForm
+      +'<div class="cl-empty"><div class="emoji">☑️</div><p>Nenhum checklist vinculado a este projeto ainda.</p></div>';
+    return;
+  }
+
+  // Build each list inline
+  const listsHTML = all.map(list => {
+    const items = (list.checklist_items||[]).sort((a,b)=>a.sort_order-b.sort_order||(a.created_at||'').localeCompare(b.created_at||''));
+    const total   = items.length;
+    const checked = items.filter(i=>i.checked).length;
+    const pct     = total ? Math.round(checked/total*100) : 0;
+    const done    = total>0&&checked===total;
+
+    const bar = '<div style="height:4px;background:var(--cream-dark);border-radius:2px;overflow:hidden;margin:8px 0">'
+      +'<div style="height:100%;border-radius:2px;background:'+(pct===100?'var(--success)':pct>=60?'var(--gold)':'var(--bordo)')
+      +';width:'+pct+'%;transition:width .4s ease"></div></div>';
+
+    const itemsHTML = items.map(item =>
+      '<div class="cl-item'+(item.checked?' checked':'')+'" id="cli-'+item.id+'">'
+      +'<input type="checkbox" class="cl-checkbox"'+(item.checked?' checked':'')+' onchange="toggleCLItem(\''+item.id+'\',this.checked,\''+list.id+'\')" />'
+      +'<span class="cl-item-text" ondblclick="startEditCLItem(\''+item.id+'\')" title="Duplo clique para editar">'+esc(item.text)+'</span>'
+      +'<div class="cl-item-actions">'
+      +'<button class="btn-icon" onclick="startEditCLItem(\''+item.id+'\')" style="width:24px;height:24px;font-size:11px">✏️</button>'
+      +'<button class="btn-icon danger" onclick="deleteCLItemFromProject(\''+item.id+'\',\''+list.id+'\',\''+projectId+'\')" style="width:24px;height:24px;font-size:11px">×</button>'
+      +'</div></div>'
+    ).join('');
+
+    const addRow = '<div class="cl-add-item" style="margin-top:6px">'
+      +'<input class="cl-add-input" id="projclnew-'+list.id+'" placeholder="Novo item... (Enter)" onkeydown="if(event.key===\'Enter\')addCLItemFromProject(\''+list.id+'\',\''+projectId+'\')" />'
+      +'<button class="cl-add-btn" onclick="addCLItemFromProject(\''+list.id+'\',\''+projectId+'\')">+ Add</button>'
+      +'</div>';
+
+    return '<div class="cl-section" style="background:var(--white);border-radius:14px;padding:16px 18px;margin-bottom:14px;box-shadow:var(--shadow)" id="projcls-'+list.id+'">'
+      +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:2px">'
+      +'<div style="font-family:\'Playfair Display\',serif;font-size:14.5px;font-weight:700;color:var(--bordo-dark)">'+(done?'✅ ':'')+esc(list.title)+'</div>'
+      +'<div style="display:flex;gap:5px;flex-shrink:0">'
+      +'<button class="btn-icon" onclick="generateChecklistPDF(\''+list.id+'\')" title="PDF" style="font-size:12px">📄</button>'
+      +'<button class="btn-icon" onclick="clearCLChecked(\''+list.id+'\').then(()=>renderProjectChecklists(\''+projectId+'\'))" title="Limpar marcados" style="font-size:12px">🧹</button>'
+      +'<button class="btn-icon danger" onclick="deleteCLFromProject(\''+list.id+'\',\''+projectId+'\')" title="Excluir" style="font-size:12px">🗑️</button>'
+      +'</div></div>'
+      +'<div style="display:flex;align-items:center;gap:8px">'
+      +'<div style="flex:1">'+bar+'</div>'
+      +'<div style="font-size:11px;color:var(--text-light);white-space:nowrap;font-weight:600">'+checked+'/'+total+' ('+pct+'%)</div>'
+      +'</div>'
+      +(items.length ? itemsHTML : '<div style="font-size:12px;color:var(--text-light);padding:6px 0;font-style:italic">Nenhum item ainda.</div>')
+      +addRow
+      +'</div>';
+  }).join('');
+
+  panel.innerHTML = newForm + listsHTML;
+}
+
+// Quick-create checklist linked to this project from the project detail tab
+async function saveProjCL(projectId){
+  const inp = document.getElementById('projCLTitle');
+  const title = inp ? inp.value.trim() : '';
+  if(!title){ alert('Informe o título da lista.'); return; }
+  inp.value = ''; inp.disabled = true;
+  const { data:ex } = await sb.from('checklists').select('sort_order').eq('project_id',projectId).order('sort_order',{ascending:false}).limit(1);
+  const nextOrder = ex&&ex.length?(ex[0].sort_order||0)+1:1;
+  await sb.from('checklists').insert({ title, project_id: projectId, sort_order: nextOrder });
+  inp.disabled = false;
+  await renderProjectChecklists(projectId);
+}
+
+// Add item from within project detail tab
+async function addCLItemFromProject(listId, projectId){
+  const inp = document.getElementById('projclnew-'+listId);
+  const text = inp ? inp.value.trim() : '';
+  if(!text) return;
+  inp.value = '';
+  const {data:ex} = await sb.from('checklist_items').select('sort_order').eq('checklist_id',listId).order('sort_order',{ascending:false}).limit(1);
+  const nextOrder = ex&&ex.length?(ex[0].sort_order||0)+1:1;
+  await sb.from('checklist_items').insert({ checklist_id:listId, text, sort_order:nextOrder });
+  await renderProjectChecklists(projectId);
+  setTimeout(()=>{ const ni=document.getElementById('projclnew-'+listId); if(ni)ni.focus(); },100);
+}
+
+async function deleteCLItemFromProject(itemId, listId, projectId){
+  await sb.from('checklist_items').delete().eq('id',itemId);
+  await renderProjectChecklists(projectId);
+}
+
+async function deleteCLFromProject(listId, projectId){
+  if(!confirm('Excluir esta lista e todos os itens?')) return;
+  await sb.from('checklist_items').delete().eq('checklist_id',listId);
+  await sb.from('checklists').delete().eq('id',listId);
+  await renderProjectChecklists(projectId);
 }
 
 // ── KANBAN ─────────────────────────────────────────────────────────────
