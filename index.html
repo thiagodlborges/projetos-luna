@@ -49,6 +49,27 @@
     .btn-report{display:flex;align-items:center;gap:7px;background:var(--white);color:var(--bordo);padding:9px 18px;border-radius:10px;border:1.5px solid var(--bordo);cursor:pointer;font-size:13px;font-weight:600;transition:all .2s;font-family:'DM Sans',sans-serif;white-space:nowrap}
     .btn-report:hover{background:var(--bordo);color:#fff}
     .btn-report:disabled{opacity:.5;cursor:wait}
+    /* Area report button (smaller, inline with heading) */
+    .btn-area-report{display:inline-flex;align-items:center;gap:5px;background:var(--white);color:var(--bordo);padding:6px 14px;border-radius:8px;border:1.5px solid var(--bordo);cursor:pointer;font-size:12px;font-weight:600;transition:all .2s;font-family:'DM Sans',sans-serif;white-space:nowrap}
+    .btn-area-report:hover{background:var(--bordo);color:#fff}
+    .btn-area-report:disabled{opacity:.5;cursor:wait}
+    /* Custom report modal */
+    .custom-report-modal{max-width:640px}
+    .proj-picker-list{max-height:340px;overflow-y:auto;border:1.5px solid var(--cream-dark);border-radius:12px;margin-bottom:16px}
+    .proj-picker-group{border-bottom:1px solid var(--cream-dark)}
+    .proj-picker-group:last-child{border-bottom:none}
+    .proj-picker-group-header{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--cream);cursor:pointer;user-select:none;font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text-mid)}
+    .proj-picker-group-header:hover{background:var(--cream-dark)}
+    .proj-picker-item{display:flex;align-items:center;gap:10px;padding:9px 18px;border-top:1px solid var(--cream-dark);cursor:pointer;transition:background .15s}
+    .proj-picker-item:first-of-type{border-top:none}
+    .proj-picker-item:hover{background:var(--cream)}
+    .proj-picker-item input[type=checkbox]{width:15px;height:15px;accent-color:var(--bordo);cursor:pointer;flex-shrink:0}
+    .proj-picker-item label{font-size:13px;color:var(--text-dark);cursor:pointer;flex:1}
+    .proj-picker-item .pick-meta{font-size:11px;color:var(--text-light);white-space:nowrap}
+    .picker-toolbar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
+    .picker-count{font-size:12px;color:var(--text-light);margin-left:auto}
+    .btn-picker-action{padding:5px 12px;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer;border:1.5px solid var(--cream-dark);background:var(--cream);color:var(--text-mid);font-family:'DM Sans',sans-serif;transition:all .2s}
+    .btn-picker-action:hover{border-color:var(--bordo);color:var(--bordo)}
     .content{padding:26px 32px}
 
     /* STATS */
@@ -750,6 +771,49 @@
   </div>
 </div>
 
+<!-- CUSTOM REPORT MODAL -->
+<div class="modal-overlay" id="customReportModal">
+  <div class="modal custom-report-modal">
+    <div class="modal-header">
+      <h3>🗂️ Relatório Personalizado</h3>
+      <button class="modal-close" onclick="closeModal('customReportModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-light);margin-bottom:16px">Selecione os projetos que deseja incluir no relatório. Você pode escolher projetos de qualquer área e ano.</p>
+
+      <div class="picker-toolbar">
+        <button class="btn-picker-action" onclick="pickerSelectAll(true)">✓ Selecionar todos</button>
+        <button class="btn-picker-action" onclick="pickerSelectAll(false)">✗ Desmarcar todos</button>
+        <button class="btn-picker-action" onclick="pickerSelectVisible()">Selecionar filtrados</button>
+        <span class="picker-count" id="pickerCount">0 projetos selecionados</span>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <input type="text" id="pickerSearch" placeholder="🔍 Buscar projeto..." style="flex:1;min-width:180px;padding:7px 12px;border-radius:8px;border:1.5px solid var(--cream-dark);background:var(--cream);font-family:'DM Sans',sans-serif;font-size:13px;outline:none" oninput="filterPicker(this.value)" />
+        <select id="pickerAreaFilter" style="padding:7px 12px;border-radius:8px;border:1.5px solid var(--cream-dark);background:var(--cream);font-family:'DM Sans',sans-serif;font-size:13px;outline:none" onchange="filterPicker(document.getElementById('pickerSearch').value)">
+          <option value="">Todas as áreas</option>
+        </select>
+        <select id="pickerYearFilter" style="padding:7px 12px;border-radius:8px;border:1.5px solid var(--cream-dark);background:var(--cream);font-family:'DM Sans',sans-serif;font-size:13px;outline:none" onchange="filterPicker(document.getElementById('pickerSearch').value)">
+          <option value="">Todos os anos</option>
+        </select>
+      </div>
+
+      <div class="proj-picker-list" id="projPickerList">
+        <div class="loading"><div class="spinner"></div> Carregando...</div>
+      </div>
+
+      <div style="background:var(--cream);border-radius:10px;padding:12px 14px;font-size:12.5px;color:var(--text-mid)">
+        <strong>Título do relatório (opcional):</strong>
+        <input type="text" id="customReportTitle" placeholder="Ex: Projetos prioritários Q3 2025" style="display:block;width:100%;margin-top:8px;padding:8px 11px;border-radius:8px;border:1.5px solid var(--cream-dark);background:var(--white);font-family:'DM Sans',sans-serif;font-size:13px;outline:none" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('customReportModal')">Cancelar</button>
+      <button class="btn-primary" id="btnGenCustom" onclick="generateCustomReport()">📄 Gerar Relatório</button>
+    </div>
+  </div>
+</div>
+
 <!-- AREAS MANAGEMENT MODAL -->
 <div class="modal-overlay" id="areasModal">
   <div class="modal" style="max-width:560px">
@@ -960,7 +1024,13 @@ async function renderArea(area){
   const{data:projects}=await sb.from('projects').select('*').eq('area',area).eq('year',currentYear);
   const all=projects||[];
   content.innerHTML='<div class="stats-grid">'+statCard('Total',all.length,'Projetos em '+currentYear,'')+statCard('Em Andamento',all.filter(p=>p.status==='em_andamento').length,'&nbsp;','info')+statCard('Atrasados','<span style="color:var(--danger)">'+all.filter(p=>p.status==='atrasado').length+'</span>','&nbsp;','danger')+statCard('Concluídos','<span style="color:var(--success)">'+all.filter(p=>p.status==='concluido').length+'</span>','&nbsp;','success')+'</div>'
-    +'<div class="section-heading">'+areaIcons[area]+' '+areaLabels[area]+' — '+currentYear+'</div><div class="ornament"></div>'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:6px">'
+    +'<div class="section-heading" style="margin-bottom:0">'+areaIcons[area]+' '+areaLabels[area]+' — '+currentYear+'</div>'
+    +'<div style="display:flex;gap:8px">'
+    +'<button class="btn-area-report" onclick="generateAreaReport(\''+area+'\')">📄 Relatório da Área</button>'
+    +'<button class="btn-area-report" onclick="openCustomReportModal()">🗂️ Relatório Personalizado</button>'
+    +'</div></div>'
+    +'<div class="ornament"></div>'
     +renderDateFiltersHTML()
     +'<div class="filters-bar" id="dashFilters"><button class="filter-chip active" onclick="filterStatus(\'todos\',this)">Todos</button><button class="filter-chip" onclick="filterStatus(\'em_andamento\',this)">Em Andamento</button><button class="filter-chip" onclick="filterStatus(\'atrasado\',this)">Atrasados</button><button class="filter-chip" onclick="filterStatus(\'concluido\',this)">Concluídos</button><button class="filter-chip" onclick="filterStatus(\'cancelado\',this)">Cancelados</button></div>'
     +'<div class="projects-grid" id="projectsGrid">'+(all.length?all.map(renderProjectCard).join(''):'<div class="empty-state"><div class="emoji">📁</div><p>Nenhum projeto em '+areaLabels[area]+' para '+currentYear+'.</p></div>')+'</div>';
@@ -2519,6 +2589,399 @@ async function duplicateProject(projectId){
     btn.textContent = '⧉ Duplicar';
     btn.disabled = false;
   }
+}
+
+// ── AREA REPORT ────────────────────────────────────────────────────────
+async function generateAreaReport(area){
+  const btn = event?.target?.closest('button');
+  if(btn){ btn.disabled=true; btn.textContent='⏳ Gerando...'; }
+  try {
+    const { data: projects } = await sb.from('projects').select('*').eq('area',area).eq('year',currentYear).order('status').order('name');
+    const { data: tasks }    = await sb.from('tasks').select('project_id,status');
+    const taskMap = buildTaskCountMap(tasks||[]);
+    const title = (areaIcons[area]||'📁')+' '+((areaLabels[area]||area)+' — '+currentYear);
+    await buildProjectsReportPDF(projects||[], taskMap, title, 'relatorio-'+(areaLabels[area]||area).toLowerCase().replace(/\s+/g,'-')+'-'+currentYear+'.pdf');
+  } finally {
+    if(btn){ btn.disabled=false; btn.textContent='📄 Relatório da Área'; }
+  }
+}
+
+// ── CUSTOM REPORT PICKER ───────────────────────────────────────────────
+let _allPickerProjects = [];
+let _selectedProjectIds = new Set();
+
+async function openCustomReportModal(){
+  openModal('customReportModal');
+  document.getElementById('projPickerList').innerHTML = '<div class="loading"><div class="spinner"></div> Carregando...</div>';
+  document.getElementById('customReportTitle').value = '';
+  document.getElementById('pickerSearch').value = '';
+
+  const { data: projects } = await sb.from('projects').select('*').order('year',{ascending:false}).order('area').order('name');
+  _allPickerProjects = projects || [];
+  _selectedProjectIds = new Set();
+
+  // Populate area and year filter selects
+  const areaSel = document.getElementById('pickerAreaFilter');
+  const yearSel = document.getElementById('pickerYearFilter');
+  areaSel.innerHTML = '<option value="">Todas as áreas</option>'
+    + areasOrder.map(a => '<option value="'+a+'">'+(areaIcons[a]||'')+'  '+(areaLabels[a]||a)+'</option>').join('');
+  const years = [...new Set(_allPickerProjects.map(p=>p.year))].sort((a,b)=>b-a);
+  yearSel.innerHTML = '<option value="">Todos os anos</option>'
+    + years.map(y=>'<option value="'+y+'">'+y+'</option>').join('');
+
+  // Pre-select current area if we're in an area view
+  if(currentView !== 'dashboard' && currentView !== 'mytasks' && currentView !== 'checklists' && areaLabels[currentView]){
+    areaSel.value = currentView;
+  }
+
+  renderPickerList(_allPickerProjects);
+}
+
+function filterPicker(search){
+  const q = (search||'').toLowerCase();
+  const areaF = document.getElementById('pickerAreaFilter').value;
+  const yearF = document.getElementById('pickerYearFilter').value;
+  const filtered = _allPickerProjects.filter(p =>
+    (!q || p.name.toLowerCase().includes(q) || (p.responsible||'').toLowerCase().includes(q))
+    && (!areaF || p.area === areaF)
+    && (!yearF || String(p.year) === yearF)
+  );
+  renderPickerList(filtered, true);
+}
+
+function renderPickerList(projects, isFiltered){
+  const list = document.getElementById('projPickerList');
+  if(!projects.length){
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-light);font-size:13px">Nenhum projeto encontrado.</div>';
+    updatePickerCount(); return;
+  }
+
+  // Group by area
+  const byArea = {};
+  projects.forEach(p => {
+    if(!byArea[p.area]) byArea[p.area] = [];
+    byArea[p.area].push(p);
+  });
+
+  list.innerHTML = Object.entries(byArea).map(([area, projs]) => {
+    const areaCheckedCount = projs.filter(p=>_selectedProjectIds.has(p.id)).length;
+    const itemsHTML = projs.map(p => {
+      const checked = _selectedProjectIds.has(p.id);
+      const pct = p.result_target ? Math.min(Math.round((p.result_achieved||0)/p.result_target*100),150) : null;
+      const pctStr = pct !== null ? ' · '+pct+'% atingido' : '';
+      return '<div class="proj-picker-item" id="pick-'+p.id+'" onclick="togglePickerItem(\''+p.id+'\')">'
+        +'<input type="checkbox" id="chk-'+p.id+'"'+(checked?' checked':'')+' onclick="event.stopPropagation();togglePickerItem(\''+p.id+'\')" />'
+        +'<label for="chk-'+p.id+'" onclick="event.stopPropagation();togglePickerItem(\''+p.id+'\')">'
+        +'<span style="font-weight:600">'+esc(p.name)+'</span>'
+        +'<span style="color:var(--text-light);font-size:11.5px;font-weight:400"> — '+esc(p.responsible||'—')+'</span>'
+        +'</label>'
+        +'<span class="pick-meta">'
+        +'<span class="status-badge status-'+p.status+'" style="font-size:9px;padding:2px 7px">'+statusLabels[p.status]+'</span>'
+        +' '+p.year+pctStr
+        +'</span>'
+        +'</div>';
+    }).join('');
+
+    return '<div class="proj-picker-group">'
+      +'<div class="proj-picker-group-header" onclick="togglePickerGroup(\''+area+'\',this)">'
+      +'<span style="font-size:15px">'+(areaIcons[area]||'📁')+'</span>'
+      +(areaLabels[area]||area)+' <span style="color:var(--text-light);font-weight:400">('+projs.length+')</span>'
+      +(areaCheckedCount?'<span style="margin-left:auto;background:var(--bordo);color:#fff;border-radius:10px;padding:1px 8px;font-size:10px">'+areaCheckedCount+' selecionado'+( areaCheckedCount>1?'s':'')+'</span>':'')
+      +'</div>'
+      + itemsHTML
+      +'</div>';
+  }).join('');
+
+  updatePickerCount();
+}
+
+function togglePickerItem(id){
+  if(_selectedProjectIds.has(id)) _selectedProjectIds.delete(id);
+  else _selectedProjectIds.add(id);
+  const chk = document.getElementById('chk-'+id);
+  if(chk) chk.checked = _selectedProjectIds.has(id);
+  const row = document.getElementById('pick-'+id);
+  if(row) row.style.background = _selectedProjectIds.has(id) ? 'rgba(107,26,42,.06)' : '';
+  updatePickerCount();
+  // Refresh group headers
+  filterPicker(document.getElementById('pickerSearch').value);
+}
+
+function togglePickerGroup(area, headerEl){
+  const projs = _allPickerProjects.filter(p=>p.area===area);
+  const allSel = projs.every(p=>_selectedProjectIds.has(p.id));
+  projs.forEach(p => allSel ? _selectedProjectIds.delete(p.id) : _selectedProjectIds.add(p.id));
+  filterPicker(document.getElementById('pickerSearch').value);
+}
+
+function pickerSelectAll(select){
+  _allPickerProjects.forEach(p => select ? _selectedProjectIds.add(p.id) : _selectedProjectIds.delete(p.id));
+  filterPicker(document.getElementById('pickerSearch').value);
+}
+
+function pickerSelectVisible(){
+  const q = (document.getElementById('pickerSearch').value||'').toLowerCase();
+  const areaF = document.getElementById('pickerAreaFilter').value;
+  const yearF = document.getElementById('pickerYearFilter').value;
+  _allPickerProjects.filter(p =>
+    (!q || p.name.toLowerCase().includes(q))
+    && (!areaF || p.area===areaF)
+    && (!yearF || String(p.year)===yearF)
+  ).forEach(p => _selectedProjectIds.add(p.id));
+  filterPicker(document.getElementById('pickerSearch').value);
+}
+
+function updatePickerCount(){
+  const el = document.getElementById('pickerCount');
+  if(el) el.textContent = _selectedProjectIds.size+' projeto'+(_selectedProjectIds.size!==1?'s':'')+' selecionado'+(_selectedProjectIds.size!==1?'s':'');
+}
+
+async function generateCustomReport(){
+  if(_selectedProjectIds.size === 0){ alert('Selecione ao menos um projeto.'); return; }
+  const btn = document.getElementById('btnGenCustom');
+  btn.disabled=true; btn.textContent='⏳ Gerando...';
+  try {
+    const selected = _allPickerProjects.filter(p=>_selectedProjectIds.has(p.id));
+    const { data: tasks } = await sb.from('tasks').select('project_id,status');
+    const taskMap = buildTaskCountMap(tasks||[]);
+    const customTitle = document.getElementById('customReportTitle').value.trim() || 'Relatório Personalizado';
+    await buildProjectsReportPDF(selected, taskMap, customTitle, 'relatorio-personalizado-'+new Date().toISOString().slice(0,10)+'.pdf');
+    closeModal('customReportModal');
+  } finally {
+    btn.disabled=false; btn.textContent='📄 Gerar Relatório';
+  }
+}
+
+// ── SHARED PDF BUILDER ─────────────────────────────────────────────────
+function buildTaskCountMap(tasks){
+  const m = {};
+  tasks.forEach(t => {
+    if(!m[t.project_id]) m[t.project_id]={total:0,concluida:0,atrasada:0};
+    m[t.project_id].total++;
+    if(t.status==='concluida') m[t.project_id].concluida++;
+    if(t.status==='atrasada')  m[t.project_id].atrasada++;
+  });
+  return m;
+}
+
+async function buildProjectsReportPDF(projects, taskMap, reportTitle, filename){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const PW=210, PH=297, ML=14, MR=14, MT=16, CW=PW-ML-MR;
+
+  const BORDO=[75,15,28], BORDO_L=[139,42,62], GOLD=[201,168,76], CREAM=[245,239,230], WHITE=[253,250,246], DARK=[44,26,14], LIGHT=[154,123,90], SUCCESS=[46,125,79], DANGER=[192,57,43], WARNING=[198,124,26], INFO=[37,99,235];
+  const today = new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'});
+
+  function fD(s){ return s?new Date(s+'T00:00:00').toLocaleDateString('pt-BR'):'—'; }
+  function fN(v,u){ if(v==null)return'—'; if(u==='R$')return'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:0}); if(u==='%')return Number(v).toLocaleString('pt-BR')+'%'; return Number(v).toLocaleString('pt-BR')+(u?' '+u:''); }
+  function sLbl(s){ return {em_andamento:'Em Andamento',concluido:'Concluído',atrasado:'Atrasado',cancelado:'Cancelado'}[s]||s; }
+  function sColor(s){ return {atrasado:DANGER,concluido:SUCCESS,em_andamento:INFO,cancelado:LIGHT}[s]||LIGHT; }
+
+  let y = 0;
+  let pageNum = 0;
+
+  function addPage(isFirst){
+    if(!isFirst) doc.addPage();
+    pageNum++;
+    // Header band
+    doc.setFillColor(...BORDO);
+    doc.rect(0,0,PW,36,'F');
+    doc.setFillColor(...GOLD);
+    doc.rect(0,36,PW,1.5,'F');
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...GOLD);
+    doc.text('LUNA GELATO & CAFFÈ  —  RELATÓRIO DE PROJETOS', ML, 11);
+    const titleLines = doc.splitTextToSize(reportTitle, CW-10);
+    doc.setFontSize(14);
+    doc.setTextColor(...WHITE);
+    doc.text(titleLines[0], ML, 22);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(180,160,140);
+    doc.text('Gerado em '+today+' · '+projects.length+' projeto'+(projects.length!==1?'s':''), ML, 31);
+    y = 46;
+  }
+
+  function checkPageBreak(neededHeight){
+    if(y + neededHeight > PH - 16){ doc.addPage(); pageNum++; addPageFooter(); y = MT; return true; }
+    return false;
+  }
+
+  function addPageFooter(){
+    doc.setFillColor(...BORDO);
+    doc.rect(0,PH-9,PW,9,'F');
+    doc.setFillColor(...GOLD);
+    doc.rect(0,PH-9,PW,0.7,'F');
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(200,185,170);
+    doc.text('Luna Gelato & Caffè — '+reportTitle+' — '+today, ML, PH-3);
+    doc.text('Página '+doc.internal.getCurrentPageInfo().pageNumber, PW-MR, PH-3, {align:'right'});
+  }
+
+  // ── SUMMARY PAGE ────────────────────────────────────────────────────
+  addPage(true);
+
+  // Stats chips
+  const andamento=projects.filter(p=>p.status==='em_andamento').length;
+  const atrasados=projects.filter(p=>p.status==='atrasado').length;
+  const concluidos=projects.filter(p=>p.status==='concluido').length;
+  const chips=[
+    {label:'Total',val:projects.length,bg:CREAM,fg:DARK},
+    {label:'Em Andamento',val:andamento,bg:INFO,fg:WHITE},
+    {label:'Atrasados',val:atrasados,bg:DANGER,fg:WHITE},
+    {label:'Concluídos',val:concluidos,bg:SUCCESS,fg:WHITE},
+  ];
+  const cw4=(CW-6)/4;
+  chips.forEach((c,i)=>{
+    const cx=ML+i*(cw4+2);
+    doc.setFillColor(...c.bg);
+    doc.roundedRect(cx,y,cw4,14,2,2,'F');
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(13);
+    doc.setTextColor(...c.fg);
+    doc.text(String(c.val),cx+cw4/2,y+8,{align:'center'});
+    doc.setFontSize(6.5);
+    doc.text(c.label,cx+cw4/2,y+12.5,{align:'center'});
+  });
+  y += 20;
+
+  // Summary table
+  const tableHead = [['Projeto','Área','Responsável','Status','Entrega','Previsto','Realizado','%']];
+  const tableRows = projects.map(p => {
+    const pct = p.result_target ? Math.min(Math.round((p.result_achieved||0)/p.result_target*100),999) : null;
+    return [
+      p.name,
+      areaLabels[p.area]||p.area,
+      p.responsible||'—',
+      sLbl(p.status),
+      fD(p.end_date),
+      fN(p.result_target,p.result_unit),
+      fN(p.result_achieved,p.result_unit),
+      pct!==null ? pct+'%' : '—',
+    ];
+  });
+
+  doc.autoTable({
+    startY:y,
+    head:tableHead,body:tableRows,
+    theme:'grid',
+    styles:{ font:'helvetica',fontSize:7,cellPadding:{top:2.5,right:3,bottom:2.5,left:3},textColor:DARK,lineColor:[220,210,200],lineWidth:0.25,overflow:'ellipsize' },
+    headStyles:{ fillColor:BORDO_L,textColor:WHITE,fontStyle:'bold',fontSize:7 },
+    alternateRowStyles:{ fillColor:CREAM },
+    columnStyles:{
+      0:{cellWidth:44,fontStyle:'bold'},1:{cellWidth:22},2:{cellWidth:24},3:{cellWidth:20,fontStyle:'bold'},
+      4:{cellWidth:18,halign:'center'},5:{cellWidth:20,halign:'right'},6:{cellWidth:20,halign:'right'},7:{cellWidth:14,halign:'center',fontStyle:'bold'}
+    },
+    didParseCell(data){
+      if(data.section==='body'){
+        if(data.column.index===3){ const p=projects[data.row.index]; if(p)data.cell.styles.textColor=sColor(p.status); }
+        if(data.column.index===7){
+          const v=parseInt(data.cell.raw);
+          if(!isNaN(v))data.cell.styles.textColor=v>=100?SUCCESS:v>=60?WARNING:v>0?DANGER:LIGHT;
+        }
+      }
+    },
+    margin:{left:ML,right:MR},
+  });
+
+  addPageFooter();
+  y = doc.lastAutoTable.finalY + 12;
+
+  // ── ONE PAGE PER PROJECT ─────────────────────────────────────────────
+  for(const p of projects){
+    doc.addPage(); pageNum++;
+    y = MT;
+
+    const tc = taskMap[p.id]||{total:0,concluida:0,atrasada:0};
+    const pct = p.result_target ? Math.min(Math.round((p.result_achieved||0)/p.result_target*100),150) : null;
+    const pctColor = pct===null?WHITE:pct>=100?[93,173,226]:pct>=60?[232,201,122]:[236,96,99];
+    const areaBg2 = areaBgColors[p.area]||'#eee';
+    const sc = sColor(p.status);
+
+    // Project header strip
+    doc.setFillColor(...BORDO);
+    doc.roundedRect(ML,y,CW,28,2,2,'F');
+    doc.setFillColor(...sc);
+    doc.roundedRect(ML,y,3,28,1,1,'F');
+
+    // Status badge
+    doc.setFillColor(...sc);
+    doc.roundedRect(PW-MR-28,y+3,26,6,2,2,'F');
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(6);
+    doc.setTextColor(...WHITE);
+    doc.text(sLbl(p.status).toUpperCase(),PW-MR-15,y+7.2,{align:'center'});
+
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(11);
+    doc.setTextColor(...WHITE);
+    const pName = doc.splitTextToSize(p.name, CW-42);
+    doc.text(pName[0], ML+6, y+9);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(180,160,140);
+    doc.text((areaLabels[p.area]||p.area)+' · 👤 '+(p.responsible||'—')+' · 📅 '+fD(p.end_date), ML+6, y+16);
+    if(p.scope){
+      const scopeLines=doc.splitTextToSize(p.scope,CW-12);
+      doc.text(scopeLines[0]+(scopeLines.length>1?'...':''),ML+6,y+22);
+    }
+    y += 33;
+
+    // Result box
+    if(p.planned_result){
+      doc.setFillColor(107,26,42,0.1);
+      doc.setDrawColor(...BORDO_L);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(ML,y,CW,20,2,2,'FD');
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(6);
+      doc.setTextColor(...GOLD);
+      doc.text('🎯  RESULTADO MENSURÁVEL',ML+4,y+5);
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...DARK);
+      doc.text(doc.splitTextToSize(p.planned_result,CW-8)[0],ML+4,y+10);
+      const cols=[[ML+4,'PREVISTO',fN(p.result_target,p.result_unit)],[ML+CW/3+4,'REALIZADO',fN(p.result_achieved,p.result_unit)],[ML+2*CW/3+4,'ATINGIMENTO',pct!==null?pct+'%':'—']];
+      cols.forEach(([cx,lbl,val],i)=>{
+        doc.setFont('helvetica','bold');doc.setFontSize(5.5);doc.setTextColor(...LIGHT);doc.text(lbl,cx,y+14);
+        doc.setFontSize(9.5);doc.setTextColor(i===2?...(pct===null?DARK:pctColor):DARK);doc.text(val,cx,y+19);
+      });
+      // Progress bar
+      doc.setFillColor(220,210,200);doc.roundedRect(ML+4,y+20.5,CW-8,1.5,0.5,0.5,'F');
+      if(pct){doc.setFillColor(...(pct>=100?[93,173,226]:pct>=60?[201,168,76]:DANGER));doc.roundedRect(ML+4,y+20.5,(CW-8)*Math.min(pct,100)/100,1.5,0.5,0.5,'F');}
+      y += 26;
+    }
+
+    // Task progress
+    const progPct = tc.total ? Math.round(tc.concluida/tc.total*100) : 0;
+    doc.setFillColor(...CREAM);doc.roundedRect(ML,y,CW,10,1,1,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(6.5);doc.setTextColor(...LIGHT);doc.text('TAREFAS',ML+3,y+4.5);
+    doc.setFontSize(8);doc.setTextColor(...DARK);
+    doc.text(tc.concluida+'/'+tc.total+(tc.atrasada?' · '+tc.atrasada+' atrasada'+(tc.atrasada>1?'s':''):''),ML+24,y+4.5);
+    if(tc.total){
+      doc.setFillColor(220,210,200);doc.roundedRect(ML+3,y+6.5,CW-6,1.8,0.5,0.5,'F');
+      const bc=progPct>=100?SUCCESS:progPct>=50?WARNING:DANGER;
+      doc.setFillColor(...bc);doc.roundedRect(ML+3,y+6.5,(CW-6)*progPct/100,1.8,0.5,0.5,'F');
+    }
+    y += 14;
+
+    addPageFooter();
+  }
+
+  // Apply footer to last page
+  const totalPages = doc.internal.getNumberOfPages();
+  for(let i=1;i<=totalPages;i++){
+    doc.setPage(i);
+    // footer already set per page above; just update page numbers
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(200,185,170);
+    doc.text('Página '+i+' de '+totalPages, PW-MR, PH-3, {align:'right'});
+  }
+
+  doc.save(filename);
 }
 
 // ── PER-PROJECT PDF REPORT ─────────────────────────────────────────────
