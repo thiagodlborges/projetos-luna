@@ -2946,7 +2946,9 @@ async function buildProjectsReportPDF(projects, taskMap, reportTitle, filename){
       const cols=[[ML+4,'PREVISTO',fN(p.result_target,p.result_unit)],[ML+CW/3+4,'REALIZADO',fN(p.result_achieved,p.result_unit)],[ML+2*CW/3+4,'ATINGIMENTO',pct!==null?pct+'%':'—']];
       cols.forEach(([cx,lbl,val],i)=>{
         doc.setFont('helvetica','bold');doc.setFontSize(5.5);doc.setTextColor(...LIGHT);doc.text(lbl,cx,y+14);
-        doc.setFontSize(9.5);doc.setTextColor(i===2?...(pct===null?DARK:pctColor):DARK);doc.text(val,cx,y+19);
+        doc.setFontSize(9.5);
+        if(i===2 && pct!==null){ doc.setTextColor(...pctColor); } else { doc.setTextColor(...DARK); }
+        doc.text(val,cx,y+19);
       });
       // Progress bar
       doc.setFillColor(220,210,200);doc.roundedRect(ML+4,y+20.5,CW-8,1.5,0.5,0.5,'F');
