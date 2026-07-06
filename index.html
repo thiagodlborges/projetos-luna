@@ -484,10 +484,11 @@
     .sidebar-logo img{width:120px;height:auto;mix-blend-mode:screen}
     .sidebar-logo-sub{font-size:8.5px;color:rgba(255,255,255,.3);letter-spacing:1.5px;text-transform:uppercase;text-align:center}
     /* Scrollable nav area */
-    .sidebar-nav{flex:1;overflow-y:auto;overflow-x:hidden;min-height:0}
-    .sidebar-nav::-webkit-scrollbar{width:3px}
+    .sidebar-nav{flex:1;overflow-y:auto;overflow-x:hidden;min-height:0;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.35) transparent}
+    .sidebar-nav::-webkit-scrollbar{width:7px}
     .sidebar-nav::-webkit-scrollbar-track{background:transparent}
-    .sidebar-nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:2px}
+    .sidebar-nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.35);border-radius:4px}
+    .sidebar-nav::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.55)}
     .sidebar-section{padding:12px 14px 4px;font-size:9px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;color:rgba(255,255,255,.28);flex-shrink:0}
     .sidebar-item{display:flex;align-items:center;gap:9px;padding:8px 14px;margin:1px 8px;border-radius:9px;cursor:pointer;transition:all .2s;color:rgba(255,255,255,.6);font-size:12.5px;font-weight:500;text-decoration:none;flex-shrink:0}
     .sidebar-item:hover{background:rgba(255,255,255,.1);color:#fff}
@@ -767,13 +768,21 @@
         <div class="form-group"><label>Ano</label><input type="number" id="pYear" min="2020" max="2035" /></div>
         <div class="form-group"><label>Responsável</label><input type="text" id="pResponsible" placeholder="Nome do responsável" /></div>
         <div class="form-group"><label>Status</label><select id="pStatus"><option value="em_andamento">Em Andamento</option><option value="concluido">Concluído</option><option value="atrasado">Atrasado</option><option value="cancelado">Cancelado</option></select></div>
+        <div class="form-group"><label>Aprovação</label><select id="pAprovacao"><option value="proposta">Proposta</option><option value="validado">Validado</option></select></div>
         <div class="form-group"><label>Data de Abertura</label><input type="date" id="pStart" onchange="syncYearFromDates()" /></div>
         <div class="form-group"><label>Data de Entrega</label><input type="date" id="pEnd" onchange="syncYearFromDates()" /></div>
         <div class="form-group form-full"><label>Escopo</label><textarea id="pScope" placeholder="Descrição abreviada do escopo..."></textarea></div>
         <div class="form-group form-full"><label>Resultado Mensurável</label><input type="text" id="pResultDesc" placeholder="Ex: Redução de custos operacionais" /></div>
-        <div class="form-group"><label>Unidade</label><input type="text" id="pResultUnit" placeholder="%, R$, un..." /></div>
-        <div class="form-group"><label>Meta (Previsto)</label><input type="number" id="pResultTarget" step="any" placeholder="0" /></div>
-        <div class="form-group"><label>Realizado</label><input type="number" id="pResultAchieved" step="any" placeholder="0" /></div>
+        <div class="form-group"><label>Tipo de Meta</label><select id="pResultType" onchange="onResultTypeChange()"><option value="numerico">Numérica (KPI)</option><option value="prazo">Prazo (Sim/Não)</option></select></div>
+        <div id="pResultNumericWrap" style="display:contents">
+          <div class="form-group"><label>Unidade</label><input type="text" id="pResultUnit" placeholder="%, R$, un..." /></div>
+          <div class="form-group"><label>Meta (Previsto)</label><input type="number" id="pResultTarget" step="any" placeholder="0" /></div>
+          <div class="form-group"><label>Realizado</label><input type="number" id="pResultAchieved" step="any" placeholder="0" /></div>
+        </div>
+        <div class="form-group" id="pResultPrazoWrap" style="display:none">
+          <label>Concluído dentro do prazo?</label>
+          <select id="pResultDone"><option value="">Ainda não avaliado</option><option value="sim">Sim</option><option value="nao">Não</option></select>
+        </div>
       </div>
     </div>
     <div class="modal-footer"><button class="btn-secondary" onclick="closeModal('projectModal')">Cancelar</button><button class="btn-primary" onclick="saveProject()">Salvar Projeto</button></div>
@@ -947,7 +956,7 @@ const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 let currentView='dashboard', currentYear=new Date().getFullYear();
 let currentProjectId=null, currentTaskId=null, editingProject=null, projectToDelete=null;
 let charts={}, searchTimeout=null;
-let activeStatusFilter='todos', dateFilterType='entrega', dateFrom='', dateTo='';
+let activeStatusFilter='todos', dateFilterType='entrega', dateFrom='', dateTo='', activeAprovacaoFilter='todos', activePrioridadeFilter='todos';
 let currentDetailTab='lista';
 
 // areaLabels, areaIcons, areaBgColors, areaFgColors, areasOrder
@@ -997,7 +1006,7 @@ function setYear(y){ currentYear=y; renderYears(); render(); }
 
 // ── NAV ────────────────────────────────────────────────────────────────
 function navigate(view){
-  currentView=view;activeStatusFilter='todos';dateFrom='';dateTo='';
+  currentView=view;activeStatusFilter='todos';activeAprovacaoFilter='todos';activePrioridadeFilter='todos';dateFrom='';dateTo='';
   document.querySelectorAll('.sidebar-item').forEach(el=>el.classList.toggle('active',el.dataset.view===view));
   const titles={
     dashboard:['Painel Geral','Visão consolidada de todos os projetos'],
@@ -1023,13 +1032,16 @@ async function render(){
 }
 
 // ── DASHBOARD ──────────────────────────────────────────────────────────
+let currentGutMap = {};
+
 async function renderDashboard(){
   const content=document.getElementById('mainContent');
 
   // Auto-promote overdue tasks across all projects before rendering alerts
   await autoUpdateAllOverdueTasks();
 
-  const[{data:projects},{data:allTasks}]=await Promise.all([sb.from('projects').select('*').eq('year',currentYear),sb.from('tasks').select('*,projects(name,area)')]);
+  const[{data:projects},{data:allTasks},{data:gutRows}]=await Promise.all([sb.from('projects').select('*').eq('year',currentYear),sb.from('tasks').select('*,projects(name,area)'),sb.from('gut_scores').select('*')]);
+  currentGutMap = {}; (gutRows||[]).forEach(g => { currentGutMap[g.project_id] = (g.gravidade||0)*(g.urgencia||0)*(g.tendencia||0); });
   const all=projects||[],tasks=allTasks||[];
   const today=new Date();today.setHours(0,0,0,0);
   const in7=new Date(today);in7.setDate(today.getDate()+7);
@@ -1060,6 +1072,8 @@ async function renderDashboard(){
     +'<div class="section-heading">Todos os Projetos — '+currentYear+'</div><div class="ornament"></div>'
     +renderDateFiltersHTML()
     +'<div class="filters-bar" id="dashFilters"><button class="filter-chip active" onclick="filterStatus(\'todos\',this)">Todos</button><button class="filter-chip" onclick="filterStatus(\'em_andamento\',this)">Em Andamento</button><button class="filter-chip" onclick="filterStatus(\'atrasado\',this)">Atrasados</button><button class="filter-chip" onclick="filterStatus(\'concluido\',this)">Concluídos</button><button class="filter-chip" onclick="filterStatus(\'cancelado\',this)">Cancelados</button></div>'
+    +'<div class="filters-bar" id="aprovFilters" style="margin-top:6px"><button class="filter-chip active" onclick="filterAprovacao(\'todos\',this)">Aprovação: Todos</button><button class="filter-chip" onclick="filterAprovacao(\'proposta\',this)">📝 Proposta</button><button class="filter-chip" onclick="filterAprovacao(\'validado\',this)">✅ Validado</button></div>'
+    +'<div class="filters-bar" id="prioFilters" style="margin-top:6px"><button class="filter-chip active" onclick="filterPrioridade(\'todos\',this)">Prioridade: Todos</button><button class="filter-chip" onclick="filterPrioridade(\'1\',this)">🔥 Prioritários (GUT &gt; 12)</button></div>'
     +'<div class="projects-grid" id="projectsGrid">'+(all.length?all.map(renderProjectCard).join(''):'<div class="empty-state"><div class="emoji">📁</div><p>Nenhum projeto para este ano.</p></div>')+'</div>';
   setTimeout(()=>{renderChartArea(byArea);renderChartStatus(byStatus);syncDateInputs();},80);
 }
@@ -1073,14 +1087,17 @@ function setDateType(t){dateFilterType=t;document.querySelectorAll('.date-type-b
 function applyDateFilter(){dateFrom=document.getElementById('dateFrom')?.value||'';dateTo=document.getElementById('dateTo')?.value||'';applyAllFilters();}
 function clearDateFilters(){dateFrom='';dateTo='';const df=document.getElementById('dateFrom');const dt=document.getElementById('dateTo');if(df)df.value='';if(dt)dt.value='';applyAllFilters();}
 function filterStatus(s,btn){activeStatusFilter=s;document.querySelectorAll('#dashFilters .filter-chip').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');applyAllFilters();}
-function applyAllFilters(){document.querySelectorAll('#projectsGrid .project-card').forEach(c=>{const s=c.dataset.status;const ref=dateFilterType==='entrega'?(c.dataset.end||''):(c.dataset.start||'');let show=true;if(activeStatusFilter!=='todos'&&s!==activeStatusFilter)show=false;if(dateFrom&&ref&&ref<dateFrom)show=false;if(dateTo&&ref&&ref>dateTo)show=false;if((dateFrom||dateTo)&&!ref)show=false;c.style.display=show?'':'none';});}
+function filterAprovacao(v,btn){activeAprovacaoFilter=v;document.querySelectorAll('#aprovFilters .filter-chip').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');applyAllFilters();}
+function filterPrioridade(v,btn){activePrioridadeFilter=v;document.querySelectorAll('#prioFilters .filter-chip').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');applyAllFilters();}
+function applyAllFilters(){document.querySelectorAll('#projectsGrid .project-card').forEach(c=>{const s=c.dataset.status;const ap=c.dataset.aprovacao;const prio=c.dataset.prioritario;const ref=dateFilterType==='entrega'?(c.dataset.end||''):(c.dataset.start||'');let show=true;if(activeStatusFilter!=='todos'&&s!==activeStatusFilter)show=false;if(activeAprovacaoFilter!=='todos'&&ap!==activeAprovacaoFilter)show=false;if(activePrioridadeFilter!=='todos'&&prio!==activePrioridadeFilter)show=false;if(dateFrom&&ref&&ref<dateFrom)show=false;if(dateTo&&ref&&ref>dateTo)show=false;if((dateFrom||dateTo)&&!ref)show=false;c.style.display=show?'':'none';});}
 function renderChartArea(byArea){const ctx=document.getElementById('chartArea');if(!ctx)return;if(charts.area)charts.area.destroy();const colors=Object.keys(byArea).map(a=>areaFgColors[a]||'#888');charts.area=new Chart(ctx,{type:'bar',data:{labels:Object.keys(byArea).map(a=>areaLabels[a]||a),datasets:[{data:Object.values(byArea),backgroundColor:colors,borderRadius:8}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});}
 function renderChartStatus(byStatus){const ctx=document.getElementById('chartStatus');if(!ctx)return;if(charts.status)charts.status.destroy();charts.status=new Chart(ctx,{type:'doughnut',data:{labels:['Em Andamento','Atrasado','Concluído','Cancelado'],datasets:[{data:Object.values(byStatus),backgroundColor:['#2563EB','#C0392B','#2E7D4F','#95A5A6'],borderWidth:0}]},options:{plugins:{legend:{position:'bottom'}},cutout:'65%'}});}
 
 // ── AREA VIEW ──────────────────────────────────────────────────────────
 async function renderArea(area){
   const content=document.getElementById('mainContent');
-  const{data:projects}=await sb.from('projects').select('*').eq('area',area).eq('year',currentYear);
+  const[{data:projects},{data:gutRows}]=await Promise.all([sb.from('projects').select('*').eq('area',area).eq('year',currentYear),sb.from('gut_scores').select('*')]);
+  currentGutMap = {}; (gutRows||[]).forEach(g => { currentGutMap[g.project_id] = (g.gravidade||0)*(g.urgencia||0)*(g.tendencia||0); });
   const all=projects||[];
   content.innerHTML='<div class="stats-grid">'+statCard('Total',all.length,'Projetos em '+currentYear,'')+statCard('Em Andamento',all.filter(p=>p.status==='em_andamento').length,'&nbsp;','info')+statCard('Atrasados','<span style="color:var(--danger)">'+all.filter(p=>p.status==='atrasado').length+'</span>','&nbsp;','danger')+statCard('Concluídos','<span style="color:var(--success)">'+all.filter(p=>p.status==='concluido').length+'</span>','&nbsp;','success')+'</div>'
     +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:6px">'
@@ -1092,6 +1109,8 @@ async function renderArea(area){
     +'<div class="ornament"></div>'
     +renderDateFiltersHTML()
     +'<div class="filters-bar" id="dashFilters"><button class="filter-chip active" onclick="filterStatus(\'todos\',this)">Todos</button><button class="filter-chip" onclick="filterStatus(\'em_andamento\',this)">Em Andamento</button><button class="filter-chip" onclick="filterStatus(\'atrasado\',this)">Atrasados</button><button class="filter-chip" onclick="filterStatus(\'concluido\',this)">Concluídos</button><button class="filter-chip" onclick="filterStatus(\'cancelado\',this)">Cancelados</button></div>'
+    +'<div class="filters-bar" id="aprovFilters" style="margin-top:6px"><button class="filter-chip active" onclick="filterAprovacao(\'todos\',this)">Aprovação: Todos</button><button class="filter-chip" onclick="filterAprovacao(\'proposta\',this)">📝 Proposta</button><button class="filter-chip" onclick="filterAprovacao(\'validado\',this)">✅ Validado</button></div>'
+    +'<div class="filters-bar" id="prioFilters" style="margin-top:6px"><button class="filter-chip active" onclick="filterPrioridade(\'todos\',this)">Prioridade: Todos</button><button class="filter-chip" onclick="filterPrioridade(\'1\',this)">🔥 Prioritários (GUT &gt; 12)</button></div>'
     +'<div class="projects-grid" id="projectsGrid">'+(all.length?all.map(renderProjectCard).join(''):'<div class="empty-state"><div class="emoji">📁</div><p>Nenhum projeto em '+areaLabels[area]+' para '+currentYear+'.</p></div>')+'</div>';
   setTimeout(syncDateInputs,80);
 }
@@ -1103,11 +1122,23 @@ function renderProjectCard(p){
   const pctColor=pct>=100?'#5DADE2':pct>=60?'var(--gold-light)':'#EC7063';
   const areaBg = areaBgColors[p.area] || '#F5EEF8';
   const areaFg = areaFgColors[p.area] || '#7D3C98';
-  const resultBox=p.planned_result?'<div class="result-box"><div class="result-box-label">🎯 Resultado Mensurável</div><div class="result-box-title">'+esc(p.planned_result)+'</div><div class="result-compare"><div class="result-col"><div class="result-col-label">Previsto</div><div class="result-col-value">'+fmtNum(p.result_target,p.result_unit)+'</div></div><div class="result-col"><div class="result-col-label">Realizado</div><div class="result-col-value achieved">'+fmtNum(p.result_achieved,p.result_unit)+'</div></div><div class="result-col" style="display:flex;align-items:flex-end"><div style="font-size:24px;font-weight:700;color:'+pctColor+'">'+pct+'%</div></div></div><div class="result-progress"><div class="result-progress-bar '+barClass+'" style="width:'+Math.min(pct,100)+'%"></div></div></div>':'';
-  return '<div class="project-card" data-status="'+p.status+'" data-start="'+(p.start_date||'')+'" data-end="'+(p.end_date||'')+'">'
+  const gutScore = currentGutMap[p.id] || 0;
+  const prioritario = gutScore > 12;
+  let resultBox='';
+  if(p.result_type==='prazo'){
+    const doneLabel = p.result_done===true?'Sim':(p.result_done===false?'Não':'Ainda não avaliado');
+    const doneColor = p.result_done===true?'#27AE60':(p.result_done===false?'#EC7063':'var(--text-light)');
+    resultBox = p.planned_result?'<div class="result-box"><div class="result-box-label">🎯 Meta de Prazo</div><div class="result-box-title">'+esc(p.planned_result)+'</div><div style="margin-top:10px;font-size:13px">Dentro do prazo: <strong style="color:'+doneColor+'">'+doneLabel+'</strong></div></div>':'';
+  } else {
+    resultBox=p.planned_result?'<div class="result-box"><div class="result-box-label">🎯 Resultado Mensurável</div><div class="result-box-title">'+esc(p.planned_result)+'</div><div class="result-compare"><div class="result-col"><div class="result-col-label">Previsto</div><div class="result-col-value">'+fmtNum(p.result_target,p.result_unit)+'</div></div><div class="result-col"><div class="result-col-label">Realizado</div><div class="result-col-value achieved">'+fmtNum(p.result_achieved,p.result_unit)+'</div></div><div class="result-col" style="display:flex;align-items:flex-end"><div style="font-size:24px;font-weight:700;color:'+pctColor+'">'+pct+'%</div></div></div><div class="result-progress"><div class="result-progress-bar '+barClass+'" style="width:'+Math.min(pct,100)+'%"></div></div></div>':'';
+  }
+  const propostaBadge = p.status_aprovacao==='proposta'?'<span class="status-badge" style="background:#FCF3CF;color:#9A7D0A;margin-left:6px">📝 Proposta</span>':'';
+  const prioridadeBadge = prioritario?'<span class="status-badge" style="background:#FDEDEC;color:#C0392B;margin-left:6px">🔥 Prioritário (GUT '+gutScore+')</span>':'';
+  return '<div class="project-card" data-status="'+p.status+'" data-start="'+(p.start_date||'')+'" data-end="'+(p.end_date||'')+'" data-aprovacao="'+(p.status_aprovacao||'validado')+'" data-prioritario="'+(prioritario?'1':'0')+'">'
     +'<div class="project-card-header"><div>'
     +'<div class="project-area-badge" style="background:'+areaBg+';color:'+areaFg+'">'+( areaIcons[p.area]||'📁')+' '+(areaLabels[p.area]||p.area)+'</div>'
     +'<div class="project-name">'+esc(p.name)+'</div><div style="font-size:11px;color:var(--text-light);margin-top:3px">👤 '+esc(p.responsible||'-')+' · 📅 '+fmtDate(p.end_date)+'</div></div><span class="status-badge status-'+p.status+'">'+statusLabels[p.status]+'</span></div>'
+    +'<div style="padding:0 16px;margin-top:-6px">'+propostaBadge+prioridadeBadge+'</div>'
     +'<div class="project-card-body"><div class="project-scope">'+esc(p.scope||'Sem descrição de escopo.')+'</div>'+resultBox+'</div>'
     +'<div class="project-actions"><button class="btn-edit" onclick="openDetail(\''+p.id+'\')">Ver Detalhes</button><button class="btn-edit" onclick="editProject(\''+p.id+'\')">✏️ Editar</button><button class="btn-dup-proj" onclick="duplicateProject(\''+p.id+'\')" title="Duplicar projeto">⧉ Duplicar</button><button class="btn-delete-proj" onclick="confirmDeleteProject(\''+p.id+'\',\''+esc(p.name)+'\')" title="Excluir projeto">🗑️</button></div></div>';
 }
@@ -1167,7 +1198,14 @@ async function openDetail(projectId){
   const pct=p.result_target?Math.min(Math.round((p.result_achieved||0)/p.result_target*100),150):0;
   const barClass=pct>=100?'progress-over':pct>=60?'progress-ok':'progress-low';
   const pctColor=pct>=100?'#5DADE2':pct>=60?'var(--gold-light)':'#EC7063';
-  const resultBox=p.planned_result?'<div class="result-box" style="margin-bottom:20px"><div class="result-box-label">🎯 Resultado Mensurável</div><div class="result-box-title">'+esc(p.planned_result)+'</div><div class="result-compare"><div class="result-col"><div class="result-col-label">Previsto</div><div class="result-col-value" style="font-size:24px">'+fmtNum(p.result_target,p.result_unit)+'</div></div><div class="result-col"><div class="result-col-label">Realizado</div><div class="result-col-value achieved" style="font-size:24px">'+fmtNum(p.result_achieved,p.result_unit)+'</div></div><div class="result-col"><div class="result-col-label">Atingimento</div><div style="font-size:24px;font-weight:700;color:'+pctColor+'">'+pct+'%</div></div></div><div class="result-progress" style="height:6px;margin-top:13px"><div class="result-progress-bar '+barClass+'" style="width:'+Math.min(pct,100)+'%"></div></div></div>':'';
+  let resultBox='';
+  if(p.result_type==='prazo'){
+    const doneLabel = p.result_done===true?'Sim':(p.result_done===false?'Não':'Ainda não avaliado');
+    const doneColor = p.result_done===true?'#27AE60':(p.result_done===false?'#EC7063':'var(--text-light)');
+    resultBox = p.planned_result?'<div class="result-box" style="margin-bottom:20px"><div class="result-box-label">🎯 Meta de Prazo</div><div class="result-box-title">'+esc(p.planned_result)+'</div><div style="margin-top:12px;font-size:15px">Dentro do prazo: <strong style="color:'+doneColor+'">'+doneLabel+'</strong></div></div>':'';
+  } else {
+    resultBox=p.planned_result?'<div class="result-box" style="margin-bottom:20px"><div class="result-box-label">🎯 Resultado Mensurável</div><div class="result-box-title">'+esc(p.planned_result)+'</div><div class="result-compare"><div class="result-col"><div class="result-col-label">Previsto</div><div class="result-col-value" style="font-size:24px">'+fmtNum(p.result_target,p.result_unit)+'</div></div><div class="result-col"><div class="result-col-label">Realizado</div><div class="result-col-value achieved" style="font-size:24px">'+fmtNum(p.result_achieved,p.result_unit)+'</div></div><div class="result-col"><div class="result-col-label">Atingimento</div><div style="font-size:24px;font-weight:700;color:'+pctColor+'">'+pct+'%</div></div></div><div class="result-progress" style="height:6px;margin-top:13px"><div class="result-progress-bar '+barClass+'" style="width:'+Math.min(pct,100)+'%"></div></div></div>':'';
+  }
 
   const areaBg2 = areaBgColors[p.area]||'#F5EEF8';
   const areaFg2 = areaFgColors[p.area]||'#7D3C98';
@@ -2330,8 +2368,17 @@ function openProjectModal(){
   document.getElementById('pArea').value = defaultArea;
   document.getElementById('pYear').value=currentYear;
   document.getElementById('pStatus').value='em_andamento';
+  document.getElementById('pAprovacao').value='proposta';
+  document.getElementById('pResultType').value='numerico';
+  document.getElementById('pResultDone').value='';
+  onResultTypeChange();
   document.getElementById('pStart').value='';document.getElementById('pEnd').value='';
   openModal('projectModal');
+}
+function onResultTypeChange(){
+  const tipo = document.getElementById('pResultType').value;
+  document.getElementById('pResultNumericWrap').style.display = tipo === 'numerico' ? 'contents' : 'none';
+  document.getElementById('pResultPrazoWrap').style.display = tipo === 'prazo' ? 'block' : 'none';
 }
 async function editProject(id){
   const{data:p}=await sb.from('projects').select('*').eq('id',id).single();
@@ -2345,6 +2392,10 @@ async function editProject(id){
   document.getElementById('pEnd').value=p.end_date||'';document.getElementById('pScope').value=p.scope||'';
   document.getElementById('pResultDesc').value=p.planned_result||'';document.getElementById('pResultUnit').value=p.result_unit||'';
   document.getElementById('pResultTarget').value=p.result_target??'';document.getElementById('pResultAchieved').value=p.result_achieved??'';
+  document.getElementById('pAprovacao').value=p.status_aprovacao||'proposta';
+  document.getElementById('pResultType').value=p.result_type||'numerico';
+  document.getElementById('pResultDone').value=p.result_done===true?'sim':(p.result_done===false?'nao':'');
+  onResultTypeChange();
   openModal('projectModal');
 }
 async function saveProject(){
@@ -2356,21 +2407,46 @@ async function saveProject(){
     ? parseInt(refDate.slice(0,4))
     : parseInt(document.getElementById('pYear').value);
 
+  const resultType = document.getElementById('pResultType').value;
+  const resultDoneVal = document.getElementById('pResultDone').value;
   const data={
     name:document.getElementById('pName').value.trim(),
     area:document.getElementById('pArea').value,
     year,
     responsible:document.getElementById('pResponsible').value.trim(),
     status:document.getElementById('pStatus').value,
+    status_aprovacao:document.getElementById('pAprovacao').value,
     start_date:startDate,
     end_date:endDate,
     scope:document.getElementById('pScope').value.trim(),
     planned_result:document.getElementById('pResultDesc').value.trim(),
-    result_unit:document.getElementById('pResultUnit').value.trim(),
-    result_target:parseFloat(document.getElementById('pResultTarget').value)||null,
-    result_achieved:parseFloat(document.getElementById('pResultAchieved').value)||null,
+    result_type:resultType,
+    result_unit:resultType==='numerico'?document.getElementById('pResultUnit').value.trim():null,
+    result_target:resultType==='numerico'?(parseFloat(document.getElementById('pResultTarget').value)||null):null,
+    result_achieved:resultType==='numerico'?(parseFloat(document.getElementById('pResultAchieved').value)||null):null,
+    result_done:resultType==='prazo'?(resultDoneVal===''?null:resultDoneVal==='sim'):null,
   };
   if(!data.name){alert('Informe o nome do projeto.');return;}
+
+  if(data.status === 'em_andamento'){
+    const { data: myGut } = editingProject
+      ? await sb.from('gut_scores').select('gravidade,urgencia,tendencia').eq('project_id', editingProject.id).maybeSingle()
+      : { data: null };
+    const myScore = myGut ? myGut.gravidade * myGut.urgencia * myGut.tendencia : 0;
+    if(myScore > 12){
+      const { data: outrosProjetos } = await sb.from('projects').select('id, gut_scores(gravidade,urgencia,tendencia)')
+        .eq('area', data.area).eq('status', 'em_andamento').neq('id', editingProject?.id || '00000000-0000-0000-0000-000000000000');
+      const qtdPrioritarios = (outrosProjetos||[]).filter(p => {
+        const g = p.gut_scores?.[0] || p.gut_scores;
+        return g && (g.gravidade*g.urgencia*g.tendencia) > 12;
+      }).length;
+      if(qtdPrioritarios >= 4){
+        alert('A área "'+(areaLabels[data.area]||data.area)+'" já tem 4 projetos em andamento com nota GUT acima de 12.\nPara colocar este em andamento, desprioriza ou conclua outro antes.');
+        return;
+      }
+    }
+  }
+
   if(editingProject)await sb.from('projects').update(data).eq('id',editingProject.id);
   else await sb.from('projects').insert(data);
   closeModal('projectModal');await renderYears();render();
@@ -2692,6 +2768,7 @@ let _gutYearFilter = '';
 let _gutAreaFilter = '';
 let _gutSortBy     = 'score'; // 'score' | 'name' | 'area'
 let _gutSaveTimers = {};
+let _gutProjectsCache = []; // area/status lookup for the "max 4 prioritários por área" rule
 
 async function renderGUTPage(){
   const content = document.getElementById('mainContent');
@@ -2714,6 +2791,7 @@ async function renderGUTPage(){
 
   // Compute GUT score = G×U×T
   enriched.forEach(p => { p.gutScore = p.gut.gravidade * p.gut.urgencia * p.gut.tendencia; });
+  _gutProjectsCache = enriched;
 
   // Years and areas for filters
   const years = [...new Set(all.map(p=>p.year))].sort((a,b)=>b-a);
@@ -2882,6 +2960,21 @@ async function setGUTScore(projectId, field, value){
   });
   current[field] = value;
 
+  const newScoreCheck = current.gravidade * current.urgencia * current.tendencia;
+  const proj = _gutProjectsCache.find(x => x.id === projectId);
+  if (proj && proj.status === 'em_andamento' && newScoreCheck > 12) {
+    const jaEraPrioritario = proj.gutScore > 12;
+    if (!jaEraPrioritario) {
+      const outrosPrioritarios = _gutProjectsCache.filter(x =>
+        x.id !== projectId && x.area === proj.area && x.status === 'em_andamento' && x.gutScore > 12
+      ).length;
+      if (outrosPrioritarios >= 4) {
+        alert('A área "'+(areaLabels[proj.area]||proj.area)+'" já tem 4 projetos em andamento com nota GUT acima de 12.\nPara priorizar este, desprioriza ou conclua outro antes.');
+        return;
+      }
+    }
+  }
+
   // Update buttons immediately
   const wrap = document.getElementById('gut-'+field+'-'+projectId);
   if(wrap){
@@ -2901,6 +2994,7 @@ async function setGUTScore(projectId, field, value){
 
   // Recompute score
   const newScore = current.gravidade * current.urgencia * current.tendencia;
+  if(proj){ proj.gutScore = newScore; proj.gut = { ...proj.gut, ...current }; }
   const pri = gutPriority(newScore);
   if(row){
     const scoreEl = row.querySelector('.gut-score-total');
@@ -4207,7 +4301,7 @@ function navigateMobile(view, btn){
 const _origNavigate = navigate;
 // Patch navigate to also sync mobile nav active state
 function navigate(view){
-  currentView=view;activeStatusFilter='todos';dateFrom='';dateTo='';
+  currentView=view;activeStatusFilter='todos';activeAprovacaoFilter='todos';activePrioridadeFilter='todos';dateFrom='';dateTo='';
   document.querySelectorAll('.sidebar-item').forEach(el=>el.classList.toggle('active',el.dataset.view===view));
   document.querySelectorAll('.mobile-nav-item[data-view]').forEach(el=>el.classList.toggle('active',el.dataset.view===view));
   // Title: fixed views first, then dynamic areas
