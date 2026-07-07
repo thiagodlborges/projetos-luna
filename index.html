@@ -1073,7 +1073,7 @@ async function renderDashboard(){
     +renderDateFiltersHTML()
     +'<div class="filters-bar" id="dashFilters"><button class="filter-chip active" onclick="filterStatus(\'todos\',this)">Todos</button><button class="filter-chip" onclick="filterStatus(\'em_andamento\',this)">Em Andamento</button><button class="filter-chip" onclick="filterStatus(\'atrasado\',this)">Atrasados</button><button class="filter-chip" onclick="filterStatus(\'concluido\',this)">Concluídos</button><button class="filter-chip" onclick="filterStatus(\'cancelado\',this)">Cancelados</button></div>'
     +'<div class="filters-bar" id="aprovFilters" style="margin-top:6px"><button class="filter-chip active" onclick="filterAprovacao(\'todos\',this)">Aprovação: Todos</button><button class="filter-chip" onclick="filterAprovacao(\'proposta\',this)">📝 Proposta</button><button class="filter-chip" onclick="filterAprovacao(\'validado\',this)">✅ Validado</button></div>'
-    +'<div class="filters-bar" id="prioFilters" style="margin-top:6px"><button class="filter-chip active" onclick="filterPrioridade(\'todos\',this)">Prioridade: Todos</button><button class="filter-chip" onclick="filterPrioridade(\'1\',this)">🔥 Prioritários (GUT &gt; 12)</button></div>'
+    +'<div class="filters-bar" id="prioFilters" style="margin-top:6px"><button class="filter-chip active" onclick="filterPrioridade(\'todos\',this)">Prioridade: Todos</button><button class="filter-chip" onclick="filterPrioridade(\'1\',this)">🔥 Prioritários (GUT &gt; 60)</button></div>'
     +'<div class="projects-grid" id="projectsGrid">'+(all.length?all.map(renderProjectCard).join(''):'<div class="empty-state"><div class="emoji">📁</div><p>Nenhum projeto para este ano.</p></div>')+'</div>';
   setTimeout(()=>{renderChartArea(byArea);renderChartStatus(byStatus);syncDateInputs();},80);
 }
@@ -1110,7 +1110,7 @@ async function renderArea(area){
     +renderDateFiltersHTML()
     +'<div class="filters-bar" id="dashFilters"><button class="filter-chip active" onclick="filterStatus(\'todos\',this)">Todos</button><button class="filter-chip" onclick="filterStatus(\'em_andamento\',this)">Em Andamento</button><button class="filter-chip" onclick="filterStatus(\'atrasado\',this)">Atrasados</button><button class="filter-chip" onclick="filterStatus(\'concluido\',this)">Concluídos</button><button class="filter-chip" onclick="filterStatus(\'cancelado\',this)">Cancelados</button></div>'
     +'<div class="filters-bar" id="aprovFilters" style="margin-top:6px"><button class="filter-chip active" onclick="filterAprovacao(\'todos\',this)">Aprovação: Todos</button><button class="filter-chip" onclick="filterAprovacao(\'proposta\',this)">📝 Proposta</button><button class="filter-chip" onclick="filterAprovacao(\'validado\',this)">✅ Validado</button></div>'
-    +'<div class="filters-bar" id="prioFilters" style="margin-top:6px"><button class="filter-chip active" onclick="filterPrioridade(\'todos\',this)">Prioridade: Todos</button><button class="filter-chip" onclick="filterPrioridade(\'1\',this)">🔥 Prioritários (GUT &gt; 12)</button></div>'
+    +'<div class="filters-bar" id="prioFilters" style="margin-top:6px"><button class="filter-chip active" onclick="filterPrioridade(\'todos\',this)">Prioridade: Todos</button><button class="filter-chip" onclick="filterPrioridade(\'1\',this)">🔥 Prioritários (GUT &gt; 60)</button></div>'
     +'<div class="projects-grid" id="projectsGrid">'+(all.length?all.map(renderProjectCard).join(''):'<div class="empty-state"><div class="emoji">📁</div><p>Nenhum projeto em '+areaLabels[area]+' para '+currentYear+'.</p></div>')+'</div>';
   setTimeout(syncDateInputs,80);
 }
@@ -1123,7 +1123,7 @@ function renderProjectCard(p){
   const areaBg = areaBgColors[p.area] || '#F5EEF8';
   const areaFg = areaFgColors[p.area] || '#7D3C98';
   const gutScore = currentGutMap[p.id] || 0;
-  const prioritario = gutScore > 12;
+  const prioritario = gutScore > 60;
   let resultBox='';
   if(p.result_type==='prazo'){
     const doneLabel = p.result_done===true?'Sim':(p.result_done===false?'Não':'Ainda não avaliado');
@@ -2438,7 +2438,7 @@ async function saveProject(){
         .eq('area', data.area).eq('status', 'em_andamento').neq('id', editingProject?.id || '00000000-0000-0000-0000-000000000000');
       const qtdPrioritarios = (outrosProjetos||[]).filter(p => {
         const g = p.gut_scores?.[0] || p.gut_scores;
-        return g && (g.gravidade*g.urgencia*g.tendencia) > 12;
+        return g && (g.gravidade*g.urgencia*g.tendencia) > 60;
       }).length;
       if(qtdPrioritarios >= 4){
         alert('A área "'+(areaLabels[data.area]||data.area)+'" já tem 4 projetos em andamento com nota GUT acima de 12.\nPara colocar este em andamento, desprioriza ou conclua outro antes.');
@@ -2963,10 +2963,10 @@ async function setGUTScore(projectId, field, value){
   const newScoreCheck = current.gravidade * current.urgencia * current.tendencia;
   const proj = _gutProjectsCache.find(x => x.id === projectId);
   if (proj && proj.status === 'em_andamento' && newScoreCheck > 12) {
-    const jaEraPrioritario = proj.gutScore > 12;
+    const jaEraPrioritario = proj.gutScore > 60;
     if (!jaEraPrioritario) {
       const outrosPrioritarios = _gutProjectsCache.filter(x =>
-        x.id !== projectId && x.area === proj.area && x.status === 'em_andamento' && x.gutScore > 12
+        x.id !== projectId && x.area === proj.area && x.status === 'em_andamento' && x.gutScore > 60
       ).length;
       if (outrosPrioritarios >= 4) {
         alert('A área "'+(areaLabels[proj.area]||proj.area)+'" já tem 4 projetos em andamento com nota GUT acima de 12.\nPara priorizar este, desprioriza ou conclua outro antes.');
